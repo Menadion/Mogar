@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -64,6 +65,7 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     var showAbout by remember { mutableStateOf(false) }
     var showFeedback by remember { mutableStateOf(false) }
+    var showWhatsNew by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = colors.surface) {
         Box(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -111,12 +113,27 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit) {
                         NavRow(
                             title = stringResource(R.string.keep_running),
                             subtitle = stringResource(R.string.keep_running_subtitle),
-                            icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = colors.primary) },
+                            icon = {
+                                Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = colors.primary)
+                                    if (!KeepRunning.allDone) UpdateDot(modifier = Modifier.align(Alignment.TopEnd))
+                                }
+                            },
                             onClick = onKeepRunning,
                         )
                         Divider()
                         UpdateRow()
                         Divider()
+                        // Reopens this version's notes. Hidden when this build has none.
+                        if (WhatsNew.hasNotes(context)) {
+                            NavRow(
+                                title = stringResource(R.string.whats_new),
+                                subtitle = stringResource(R.string.whats_new_subtitle, Diagnostics.appVersion(context)),
+                                icon = { Icon(Icons.Default.Star, contentDescription = null, tint = colors.primary) },
+                                onClick = { showWhatsNew = true },
+                            )
+                            Divider()
+                        }
                         NavRow(
                             title = stringResource(R.string.about_map),
                             subtitle = stringResource(R.string.about_map_subtitle),
@@ -152,6 +169,7 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit) {
         )
     }
     if (showFeedback) FeedbackDialog(onClose = { showFeedback = false })
+    if (showWhatsNew) WhatsNewDialog(onClose = { showWhatsNew = false })
 }
 
 // Check for updates: a tap asks GitHub and the subtitle says what it found. A newer Mogar puts the

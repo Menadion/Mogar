@@ -22,14 +22,14 @@
     <string name="member_one">1 member</string>
     <string name="members_n">%1$d members</string>
     <string name="settings">Settings</string>
-    <string name="settings_update_available">Settings, a newer Mogar is out</string>
+    <string name="settings_needs_attention">Settings, something needs your attention</string>
     <string name="sharing_state_on">Sharing on</string>
     <string name="sharing_state_off">Sharing off</string>
     <string name="sharing_notice_on">Your location is being shared with your family</string>
     <string name="sharing_notice_off">Your family won\'t be able to see you</string>
     <string name="show_everyone">Show everyone</string>
     <string name="background_title">Keep sharing when Mogar is closed</string>
-    <string name="background_text">On the next screen, choose \"Allow all the time\". Then your family can still see you after your phone restarts.</string>
+    <string name="background_text">On the next screen, choose \'Allow all the time\'. Then your family can still see you after your phone restarts.</string>
     <string name="continue_label">Continue</string>
     <string name="not_now">Not now</string>
 
@@ -80,7 +80,7 @@
     <string name="about_map">About the map</string>
     <string name="about_map_subtitle">Map credits</string>
     <string name="about_map_text">Map data © OpenStreetMap contributors.\nMap tiles by OpenFreeMap.\nDrawn with MapLibre.</string>
-    <string name="version_line">Mogar %1$s</string>
+    <string name="version_line">Mogar version %1$s</string>
     <string name="check_updates">Check for updates</string>
     <string name="update_checking">Checking…</string>
     <string name="update_out">Mogar %1$s is out</string>
@@ -93,13 +93,24 @@
     <string name="update_install">Install Mogar %1$s</string>
     <string name="update_download_failed">Download failed. Try again.</string>
     <string name="install_permission_title">One-time permission</string>
-    <string name="install_permission_text">Android will ask once to let Mogar install its updates. Turn on Allow, then press back.</string>
+    <string name="install_permission_text">Android will ask once to let Mogar install its updates. Turn on \'Allow\', then press back.</string>
     <string name="ok">OK</string>
+
+    <!-- What's new: this version's notes only, rewritten each release. See WhatsNew.kt -->
+    <string name="whats_new_version" translatable="false">0.6</string>
+    <string name="whats_new">What\'s new</string>
+    <string name="whats_new_subtitle">What changed in Mogar %1$s</string>
+    <string name="whats_new_title">What\'s new in Mogar %1$s</string>
+    <string-array name="whats_new_items">
+        <item>When the person who made the family leaves, someone else takes over. The last one to leave deletes the family.</item>
+        <item>Leaving and joining again keeps your picture.</item>
+        <item>A red dot on the gear when \'Keep Mogar running\' isn\'t finished.</item>
+    </string-array>
 
     <!-- Send feedback -->
     <string name="feedback">Send feedback</string>
     <string name="feedback_subtitle">Problems or ideas, all optional</string>
-    <string name="feedback_settings_q">Did the buttons in Keep Mogar running take you to the right page?</string>
+    <string name="feedback_settings_q">Did the buttons in \'Keep Mogar running\' take you to the right page?</string>
     <string name="feedback_yes">Yes</string>
     <string name="feedback_no">No</string>
     <string name="feedback_landed">Where did you end up?</string>
@@ -138,17 +149,17 @@
     <!-- Keep Mogar running -->
     <string name="keep_running_intro">Some phones close Mogar to save battery. Then your family stops seeing where you are. Do these steps once.</string>
     <string name="step_background_title">Let Mogar run in the background</string>
-    <string name="step_background_xiaomi">Tap the button, then choose No restrictions.</string>
-    <string name="step_background_other">Tap the button, then choose Allow.</string>
+    <string name="step_background_xiaomi">Tap the button, then choose \'No restrictions\'.</string>
+    <string name="step_background_other">Tap the button, then choose \'Allow\'.</string>
     <string name="allow">Allow</string>
-    <string name="xiaomi_title">Xiaomi: turn on Autostart</string>
-    <string name="xiaomi_detail">Tap the button. On the page that opens, turn on Autostart.</string>
+    <string name="xiaomi_title">Xiaomi: turn on \'Autostart\'</string>
+    <string name="xiaomi_detail">Tap the button. On the page that opens, turn on \'Autostart\'.</string>
     <string name="vivo_title">Vivo: allow background use</string>
-    <string name="vivo_detail">Tap the button. Turn on Mogar in the list that opens. If you see App info instead, open Battery and allow high background power use.</string>
+    <string name="vivo_detail">Tap the button. Turn on Mogar in the list that opens. If you see \'App info\' instead, open \'Battery\' and allow high background power use.</string>
     <string name="samsung_title">Samsung: don\'t put Mogar to sleep</string>
-    <string name="samsung_detail">Tap the button. Under Background usage limits, turn off \"Put unused apps to sleep\". Then open Never sleeping apps and add Mogar. On an older Samsung this is under Device care, Battery, then the ⋮ menu.</string>
+    <string name="samsung_detail">Tap the button. Under \'Background usage limits\', turn off \'Put unused apps to sleep\'. Then open \'Never sleeping apps\' and add Mogar. On an older Samsung this is under \'Device care\', \'Battery\', then the ⋮ menu.</string>
     <string name="pause_title">Don\'t pause Mogar when unused</string>
-    <string name="pause_detail">Tap the button, then turn off \"Pause app activity if unused\". Otherwise your phone stops Mogar after a few months without opening it.</string>
+    <string name="pause_detail">Tap the button, then turn off \'Pause app activity if unused\'. Otherwise your phone stops Mogar after a few months without opening it.</string>
     <string name="open_setting">Open setting</string>
     <string name="open_settings">Open settings</string>
     <string name="i_did_this">I did this</string>

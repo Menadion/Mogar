@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -127,6 +128,15 @@ object KeepRunning {
     fun neverPaused(context: Context): Boolean =
         Build.VERSION.SDK_INT < 30 || context.packageManager.isAutoRevokeWhitelisted
 
+    // Every step this phone has is done. Until then the gear and the Settings row carry the red dot
+    // (M's call, 2026-09-27; the brand step counts once they tick it, since the app can't see it).
+    var allDone by mutableStateOf(true)
+        private set
+
+    fun refresh(context: Context) {
+        allDone = isUnrestricted(context) && (brand == Brand.OTHER || brandStepDone(context)) && neverPaused(context)
+    }
+
     fun openPauseSetting(context: Context) {
         val page = Intent(Intent.ACTION_AUTO_REVOKE_PERMISSIONS, Uri.parse("package:${context.packageName}"))
         if (!tryOpen(context, page)) openAppInfo(context)
@@ -160,6 +170,7 @@ fun KeepRunningScreen(onDone: () -> Unit) {
     val unrestricted = remember(checks) { KeepRunning.isUnrestricted(context) }
     val neverPaused = remember(checks) { KeepRunning.neverPaused(context) }
     var brandDone by remember { mutableStateOf(KeepRunning.brandStepDone(context)) }
+    LaunchedEffect(unrestricted, neverPaused, brandDone) { KeepRunning.refresh(context) }
 
     // Spec: HANDOFF.md section 9. Done steps go tonal with a green tick; the rest stay white with a blue edge.
     Surface(modifier = Modifier.fillMaxSize(), color = colors.surface) {

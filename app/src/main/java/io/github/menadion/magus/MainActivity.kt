@@ -148,6 +148,12 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(LanguageSetting.wrap(newBase))
     }
 
+    // Back from Android's settings: the Keep running steps may have changed, and with them the gear's dot.
+    override fun onResume() {
+        super.onResume()
+        KeepRunning.refresh(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -190,6 +196,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
         mutableStateOf((context as? Activity)?.intent?.getBooleanExtra(LanguageSetting.OPEN_SETTINGS, false) ?: false)
     }
     var showFamilyPage by remember { mutableStateOf(false) }
+    var showWhatsNew by remember { mutableStateOf(WhatsNew.dueNow(context)) }
     var familyName by remember { mutableStateOf(Family.savedFamilyName(context)) }
     var familyCreator by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -397,7 +404,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                         if (sharing) startSharingSteps() else ShareService.stop(context)
                         notice = context.getString(if (sharing) R.string.sharing_notice_on else R.string.sharing_notice_off)
                     },
-                    updateAvailable = Updates.newer != null,
+                    needsAttention = Updates.newer != null || !KeepRunning.allDone,
                     onSettings = { showSettings = true },
                     onFamily = { showFamilyPage = true },
                 )
@@ -447,6 +454,14 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             BackHandler { showKeepRunning = false }
             KeepRunningScreen(onDone = { showKeepRunning = false })
         }
+    }
+
+    // After an update, once the map itself is showing: never over another screen or box.
+    if (showWhatsNew && !showSettings && !showKeepRunning && !showFamilyPage && !explainBackground) {
+        WhatsNewDialog(onClose = {
+            showWhatsNew = false
+            WhatsNew.markSeen(context)
+        })
     }
 
     if (explainBackground) {
@@ -848,7 +863,7 @@ fun FamilyStrip(
     familyName: String?,
     memberCount: Int,
     sharing: Boolean,
-    updateAvailable: Boolean,
+    needsAttention: Boolean,
     onToggle: () -> Unit,
     onSettings: () -> Unit,
     onFamily: () -> Unit,
@@ -901,12 +916,13 @@ fun FamilyStrip(
                 Box {
                     Icon(
                         Icons.Default.Settings,
-                        contentDescription = stringResource(if (updateAvailable) R.string.settings_update_available else R.string.settings),
+                        contentDescription = stringResource(if (needsAttention) R.string.settings_needs_attention else R.string.settings),
                         tint = colors.onSurfaceVariant,
                         modifier = Modifier.size(26.dp),
                     )
-                    // The red dot on the gear's upper-right corner, only while a newer Mogar exists.
-                    if (updateAvailable) {
+                    // The red dot on the gear's upper-right corner, while a newer Mogar exists or
+                    // Keep Mogar running isn't finished. Inside Settings the dot sits on the row to act on.
+                    if (needsAttention) {
                         UpdateDot(modifier = Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-3).dp))
                     }
                 }

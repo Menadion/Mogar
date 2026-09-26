@@ -22,14 +22,14 @@
     <string name="member_one">1 miyembro</string>
     <string name="members_n">%1$d miyembro</string>
     <string name="settings">Mga setting</string>
-    <string name="settings_update_available">Mga setting, may bagong Mogar</string>
+    <string name="settings_needs_attention">Mga setting, may kailangan kang tingnan</string>
     <string name="sharing_state_on">Naka-on ang pag-share</string>
     <string name="sharing_state_off">Naka-off ang pag-share</string>
     <string name="sharing_notice_on">Nakikita ng pamilya mo kung nasaan ka</string>
     <string name="sharing_notice_off">Hindi ka makikita ng pamilya mo</string>
     <string name="show_everyone">Ipakita ang lahat</string>
     <string name="background_title">Patuloy na mag-share kahit nakasara ang Mogar</string>
-    <string name="background_text">Sa susunod na screen, piliin ang \"Allow all the time\". Para makita ka pa rin ng pamilya mo kahit mag-restart ang phone mo.</string>
+    <string name="background_text">Sa susunod na screen, piliin ang \'Allow all the time\'. Para makita ka pa rin ng pamilya mo kahit mag-restart ang phone mo.</string>
     <string name="continue_label">Magpatuloy</string>
     <string name="not_now">Mamaya na</string>
 
@@ -77,7 +77,7 @@
     <string name="about_map">Tungkol sa mapa</string>
     <string name="about_map_subtitle">Mga kredito ng mapa</string>
     <string name="about_map_text">Datos ng mapa © mga contributor ng OpenStreetMap.\nMga tile ng mapa mula sa OpenFreeMap.\nGinuhit gamit ang MapLibre.</string>
-    <string name="version_line">Mogar %1$s</string>
+    <string name="version_line">Mogar version %1$s</string>
     <string name="check_updates">Tingnan kung may update</string>
     <string name="update_checking">Tinitingnan…</string>
     <string name="update_out">May bagong Mogar %1$s</string>
@@ -90,13 +90,23 @@
     <string name="update_install">I-install ang sunod na update (Mogar %1$s)</string>
     <string name="update_download_failed">Hindi na-download. Subukan ulit.</string>
     <string name="install_permission_title">Isang beses lang</string>
-    <string name="install_permission_text">Isang beses lang itatanong ng Android kung puwedeng mag-install ng update ang Mogar. I-on ang Allow, tapos pindutin ang back.</string>
+    <string name="install_permission_text">Isang beses lang itatanong ng Android kung puwedeng mag-install ng update ang Mogar. I-on ang \'Allow\', tapos pindutin ang back.</string>
     <string name="ok">OK</string>
+
+    <!-- What's new: this version's notes only, rewritten each release. See WhatsNew.kt -->
+    <string name="whats_new">Ano ang bago</string>
+    <string name="whats_new_subtitle">Ano ang nagbago sa Mogar %1$s</string>
+    <string name="whats_new_title">Ano ang bago sa Mogar %1$s</string>
+    <string-array name="whats_new_items">
+        <item>Kapag umalis ang gumawa ng pamilya, may ibang papalit sa kanya. Kapag umalis ang huling natitira, mabubura ang pamilya.</item>
+        <item>Hindi na mawawala ang litrato mo kapag umalis ka at sumali ulit.</item>
+        <item>May pulang tuldok sa gear kapag hindi pa tapos ang \'Panatilihing tumatakbo ang Mogar\'.</item>
+    </string-array>
 
     <!-- Send feedback -->
     <string name="feedback">Magpadala ng feedback</string>
     <string name="feedback_subtitle">Mga problema o ideya, opsyonal lahat</string>
-    <string name="feedback_settings_q">Dinala ka ba ng mga button sa Panatilihing tumatakbo ang Mogar sa tamang page?</string>
+    <string name="feedback_settings_q">Dinala ka ba ng mga button sa \'Panatilihing tumatakbo ang Mogar\' sa tamang page?</string>
     <string name="feedback_yes">Oo</string>
     <string name="feedback_no">Hindi</string>
     <string name="feedback_landed">Saan ka napunta?</string>
@@ -135,17 +145,17 @@
     <!-- Keep Mogar running -->
     <string name="keep_running_intro">May mga phone na nagsasara ng Mogar para makatipid ng baterya. Kapag nangyari iyon, hindi na makikita ng pamilya mo kung nasaan ka. Gawin ang mga hakbang na ito nang isang beses.</string>
     <string name="step_background_title">Hayaang tumakbo ang Mogar sa background</string>
-    <string name="step_background_xiaomi">Pindutin ang button, tapos piliin ang No restrictions.</string>
-    <string name="step_background_other">Pindutin ang button, tapos piliin ang Allow.</string>
+    <string name="step_background_xiaomi">Pindutin ang button, tapos piliin ang \'No restrictions\'.</string>
+    <string name="step_background_other">Pindutin ang button, tapos piliin ang \'Allow\'.</string>
     <string name="allow">Payagan</string>
-    <string name="xiaomi_title">Xiaomi: i-on ang Autostart</string>
-    <string name="xiaomi_detail">Pindutin ang button. Sa page na bubukas, i-on ang Autostart.</string>
+    <string name="xiaomi_title">Xiaomi: i-on ang \'Autostart\'</string>
+    <string name="xiaomi_detail">Pindutin ang button. Sa page na bubukas, i-on ang \'Autostart\'.</string>
     <string name="vivo_title">Vivo: payagan ang background use</string>
-    <string name="vivo_detail">Pindutin ang button. I-on ang Mogar sa listahang bubukas. Kung App info ang lumabas, buksan ang Battery at payagan ang high background power use.</string>
+    <string name="vivo_detail">Pindutin ang button. I-on ang Mogar sa listahang bubukas. Kung \'App info\' ang lumabas, buksan ang \'Battery\' at payagan ang high background power use.</string>
     <string name="samsung_title">Samsung: huwag patulugin ang Mogar</string>
-    <string name="samsung_detail">Pindutin ang button. Sa ilalim ng Background usage limits, i-off ang \"Put unused apps to sleep\". Tapos buksan ang Never sleeping apps at idagdag ang Mogar. Sa mas lumang Samsung, nasa Device care, Battery, tapos sa ⋮ menu ito.</string>
+    <string name="samsung_detail">Pindutin ang button. Sa ilalim ng \'Background usage limits\', i-off ang \'Put unused apps to sleep\'. Tapos buksan ang \'Never sleeping apps\' at idagdag ang Mogar. Sa mas lumang Samsung, nasa \'Device care\', \'Battery\', tapos sa ⋮ menu ito.</string>
     <string name="pause_title">Huwag i-pause ang Mogar kapag hindi ginagamit</string>
-    <string name="pause_detail">Pindutin ang button, tapos i-off ang \"Pause app activity if unused\". Kung hindi, ititigil ng phone mo ang Mogar pagkatapos ng ilang buwang hindi nabubuksan.</string>
+    <string name="pause_detail">Pindutin ang button, tapos i-off ang \'Pause app activity if unused\'. Kung hindi, ititigil ng phone mo ang Mogar pagkatapos ng ilang buwang hindi nabubuksan.</string>
     <string name="open_setting">Buksan ang setting</string>
     <string name="open_settings">Buksan ang mga setting</string>
     <string name="i_did_this">Ginawa ko na ito</string>
