@@ -123,6 +123,7 @@
     <string name="your_name">Pangalan mo</string>
     <string name="leave_family_q">Aalis sa %1$s?</string>
     <string name="leave_family_text">Hindi ka na makikita ng pamilya mo. Puwede kang sumali ulit gamit ang code %1$s.</string>
+    <string name="leave_family_last_text">Ikaw na lang ang natitira sa %1$s. Kapag umalis ka, mabubura ang pamilya at ang code nito.</string>
     <string name="leaving">Umaalis…</string>
     <string name="phone_number">Numero ng phone</string>
     <string name="phone_optional">Opsyonal</string>

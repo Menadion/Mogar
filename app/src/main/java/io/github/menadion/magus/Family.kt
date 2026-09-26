@@ -178,10 +178,22 @@ object Family {
 
     // Leaves the family: my record goes from Firebase, this phone forgets the family. My name stays
     // for next time, and sharing is back on for whatever family comes next.
+    // A leaving creator hands the family on to whoever was seen most recently (skips phones that
+    // uninstalled without leaving), so the last one left is always the creator; when that last one
+    // leaves, the family itself is deleted too (M's calls, 2026-09-26).
     suspend fun leave(context: Context) {
         val code = savedCode(context) ?: return
         val uid = myId()
-        db.collection("families").document(code).collection("members").document(uid).delete().await()
+        val family = db.collection("families").document(code)
+        val isCreator = family.get().await().getString("createdBy") == uid
+        val others = if (isCreator) family.collection("members").get().await().documents.filter { it.id != uid } else emptyList()
+        if (isCreator && others.isNotEmpty()) {
+            val next = others.maxBy { it.getTimestamp("updatedAt")?.toDate()?.time ?: 0L }
+            family.update("createdBy", next.id).await()
+        }
+        family.collection("members").document(uid).delete().await()
+        // A refused delete only leaves an empty family behind; the leaving still goes through.
+        if (isCreator && others.isEmpty()) runCatching { family.delete().await() }
         prefs(context).edit()
             .remove("familyCode")
             .remove("familyName")

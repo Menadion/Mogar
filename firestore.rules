@@ -2,7 +2,8 @@ rules_version = '2';
 
 // Who can see what in Mogar. Paste into Firebase console > Firestore Database > Rules > Publish.
 //
-//   families/{code}                  anyone signed in can check a code exists (to join) or make a new one
+//   families/{code}                  anyone signed in can check a code exists (to join) or make a new one;
+//                                    its creator renames it, hands it on, or deletes it as the last to leave
 //   families/{code}/members/{uid}    only members of that family can read it; you can only write your own
 //   feedback/{id}                    anyone signed in can add one; nobody can read them from a phone
 service cloud.firestore {
@@ -20,9 +21,13 @@ service cloud.firestore {
       // "get" is one family by its code. Listing every family is not allowed.
       allow get: if signedIn();
       allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
-      // Only whoever made the family can change its name, and only its name.
+      // Only whoever made the family can change its name, or hand the family on to another member
+      // when leaving. Nothing else about it changes.
       allow update: if signedIn() && resource.data.createdBy == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'createdBy'])
+        && exists(/databases/$(database)/documents/families/$(code)/members/$(request.resource.data.createdBy));
+      // The last one to leave is always the creator (it's handed on), and takes the family with them.
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
 
       match /members/{uid} {
         allow read: if signedIn() && isMember(code);

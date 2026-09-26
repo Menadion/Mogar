@@ -326,7 +326,8 @@ fun FamilyPage(
             title = { Text(stringResource(R.string.leave_family_q, Family.familyLabel(context)), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center) },
             text = {
                 Text(
-                    stringResource(R.string.leave_family_text, code),
+                    if (people.none { !it.isYou }) stringResource(R.string.leave_family_last_text, Family.familyLabel(context))
+                    else stringResource(R.string.leave_family_text, code),
                     style = MaterialTheme.typography.bodyLarge,
                     color = colors.onSurfaceVariant,
                 )

@@ -126,6 +126,7 @@
     <string name="your_name">Your name</string>
     <string name="leave_family_q">Leave %1$s?</string>
     <string name="leave_family_text">Your family will stop seeing you. You can join again with the code %1$s.</string>
+    <string name="leave_family_last_text">You\'re the last one in %1$s. Leaving deletes the family and its code.</string>
     <string name="leaving">Leaving…</string>
     <string name="phone_number">Phone number</string>
     <string name="phone_optional">Optional</string>
