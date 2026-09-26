@@ -93,7 +93,7 @@ object Family {
                 family.set(
                     mapOf("name" to familyName, "createdBy" to uid, "createdAt" to FieldValue.serverTimestamp())
                 ).await()
-                family.collection("members").document(uid).set(memberFields(name, phone)).await()
+                family.collection("members").document(uid).set(memberFields(context, name, phone)).await()
                 save(context, name, code, familyName, phone)
                 return code
             }
@@ -109,13 +109,17 @@ object Family {
         val found = family.get().await()
         if (!found.exists()) error(context.getString(R.string.no_family_with_code, code))
         family.collection("members").document(uid)
-            .set(memberFields(name, phone), SetOptions.merge()).await()
+            .set(memberFields(context, name, phone), SetOptions.merge()).await()
         save(context, name, code, found.getString("name"), phone)
     }
 
-    // A new member's record: the number only when one was typed.
-    private fun memberFields(name: String, phone: String?): Map<String, Any> =
-        mutableMapOf<String, Any>("name" to name, "sharing" to true).apply { if (phone != null) put("phone", phone) }
+    // A new member's record: the number only when one was typed, and the picture this phone kept
+    // from before, so leaving and rejoining doesn't lose it (M's call, 2026-09-26).
+    private fun memberFields(context: Context, name: String, phone: String?): Map<String, Any> =
+        mutableMapOf<String, Any>("name" to name, "sharing" to true).apply {
+            if (phone != null) put("phone", phone)
+            savedPhoto(context)?.let { put("photo", Blob.fromBytes(it)) }
+        }
 
     // Sets or removes my phone number, for the family's cards and this phone's own card.
     suspend fun setPhone(context: Context, phone: String?) {
