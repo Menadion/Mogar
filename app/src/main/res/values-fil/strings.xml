@@ -66,11 +66,11 @@
     <!-- Settings -->
     <string name="appearance">Itsura</string>
     <string name="theme">Tema</string>
-    <string name="theme_auto">Awto</string>
+    <string name="theme_auto">Auto</string>
     <string name="theme_light">Maliwanag</string>
     <string name="theme_dark">Madilim</string>
     <string name="language">Wika</string>
-    <string name="language_auto">Awto</string>
+    <string name="language_auto">Auto</string>
     <string name="app">App</string>
     <string name="keep_running">Panatilihing tumatakbo ang Mogar</string>
     <string name="keep_running_subtitle">Pigilan ang phone mo na isara ang Mogar</string>

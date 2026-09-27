@@ -156,14 +156,16 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                         )
                     }
                 }
+                // Under the rows, scrolling with them: pinned to the screen's bottom it sat on the
+                // last row once the list outgrew a short screen (Filipino, 2026-09-27).
+                Text(
+                    stringResource(R.string.version_line, Diagnostics.appVersion(context)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 16.dp),
+                )
             }
-            Text(
-                stringResource(R.string.version_line, Diagnostics.appVersion(context)),
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
-            )
         }
     }
 

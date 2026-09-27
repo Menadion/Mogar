@@ -91,6 +91,13 @@ fun TutorialScreen(onDone: () -> Unit) {
 
     Surface(modifier = Modifier.fillMaxSize(), color = colors.surface) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            // What this is, over every page (M's ask, 2026-09-27).
+            Text(
+                stringResource(R.string.tutorial),
+                style = MaterialTheme.typography.headlineSmall,
+                color = colors.onSurface,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp),
+            )
             HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth()) { page ->
                 SlidePage(SLIDES[page])
             }
