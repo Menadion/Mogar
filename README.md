@@ -55,4 +55,4 @@ SIL Open Font License.
 
 ## Status
 
-Version 0.6. Kotlin and Jetpack Compose, Android 8 and up.
+Version 0.7. Kotlin and Jetpack Compose, Android 8 and up.

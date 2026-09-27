@@ -97,14 +97,14 @@
     <string name="ok">OK</string>
 
     <!-- What's new: this version's notes only, rewritten each release. See WhatsNew.kt -->
-    <string name="whats_new_version" translatable="false">0.6</string>
+    <string name="whats_new_version" translatable="false">0.7</string>
     <string name="whats_new">What\'s new</string>
     <string name="whats_new_subtitle">What changed in Mogar %1$s</string>
     <string name="whats_new_title">What\'s new in Mogar %1$s</string>
     <string-array name="whats_new_items">
-        <item>When the person who made the family leaves, someone else takes over. The last one to leave deletes the family.</item>
-        <item>Leaving and joining again keeps your picture.</item>
-        <item>A red dot on the gear when \'Keep Mogar running\' isn\'t finished.</item>
+        <item>After your phone restarts, a notice asks you to open Mogar so sharing comes back.</item>
+        <item>A short tour of Mogar: \'How Mogar works\' in \'Settings\'.</item>
+        <item>\'Auto\' no longer wraps in Filipino.</item>
     </string-array>
 
     <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->

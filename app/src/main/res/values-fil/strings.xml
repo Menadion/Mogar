@@ -98,9 +98,9 @@
     <string name="whats_new_subtitle">Ano ang nagbago sa Mogar %1$s</string>
     <string name="whats_new_title">Ano ang bago sa Mogar %1$s</string>
     <string-array name="whats_new_items">
-        <item>Kapag umalis ang gumawa ng pamilya, may ibang papalit sa kanya. Kapag umalis ang huling natitira, mabubura ang pamilya.</item>
-        <item>Hindi na mawawala ang litrato mo kapag umalis ka at sumali ulit.</item>
-        <item>May pulang tuldok sa gear kapag hindi pa tapos ang \'Panatilihing tumatakbo ang Mogar\'.</item>
+        <item>Pagka-restart ng phone mo, may lalabas na paalala para buksan ang Mogar at bumalik ang pag-share.</item>
+        <item>Isang maikling tour ng Mogar: \'Paano gumagana ang Mogar\' sa \'Mga setting\'.</item>
+        <item>Hindi na napuputol ang \'Auto\' sa Filipino.</item>
     </string-array>
 
     <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->
