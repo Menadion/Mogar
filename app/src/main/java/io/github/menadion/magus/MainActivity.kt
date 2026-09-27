@@ -197,6 +197,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     }
     var showFamilyPage by remember { mutableStateOf(false) }
     var showWhatsNew by remember { mutableStateOf(WhatsNew.dueNow(context)) }
+    var showTutorial by remember { mutableStateOf(Tutorial.dueNow(context)) }
     var familyName by remember { mutableStateOf(Family.savedFamilyName(context)) }
     var familyCreator by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -447,6 +448,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             SettingsScreen(
                 onBack = { showSettings = false },
                 onKeepRunning = { showKeepRunning = true },
+                onTutorial = { showTutorial = true },
             )
         }
 
@@ -454,10 +456,17 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             BackHandler { showKeepRunning = false }
             KeepRunningScreen(onDone = { showKeepRunning = false })
         }
+
+        // The short tour: once after setup, after the Keep running steps; again from Settings.
+        if (showTutorial && !showKeepRunning && !explainBackground) {
+            val close = { showTutorial = false; Tutorial.markSeen(context) }
+            BackHandler(onBack = close)
+            TutorialScreen(onDone = close)
+        }
     }
 
     // After an update, once the map itself is showing: never over another screen or box.
-    if (showWhatsNew && !showSettings && !showKeepRunning && !showFamilyPage && !explainBackground) {
+    if (showWhatsNew && !showSettings && !showKeepRunning && !showFamilyPage && !explainBackground && !showTutorial) {
         WhatsNewDialog(onClose = {
             showWhatsNew = false
             WhatsNew.markSeen(context)

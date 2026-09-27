@@ -60,7 +60,7 @@ import kotlinx.coroutines.launch
 // Settings, opened by the gear: the app's own rows, and the version at the bottom. Everything about
 // the family and you lives on the family page (FamilyPage), opened from the family name on the map.
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: () -> Unit) {
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     var showAbout by remember { mutableStateOf(false) }
@@ -134,6 +134,13 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit) {
                             )
                             Divider()
                         }
+                        NavRow(
+                            title = stringResource(R.string.tutorial),
+                            subtitle = stringResource(R.string.tutorial_subtitle),
+                            icon = { Text("?", style = MaterialTheme.typography.titleMedium, color = colors.primary) },
+                            onClick = onTutorial,
+                        )
+                        Divider()
                         NavRow(
                             title = stringResource(R.string.about_map),
                             subtitle = stringResource(R.string.about_map_subtitle),

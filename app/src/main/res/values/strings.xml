@@ -107,6 +107,18 @@
         <item>A red dot on the gear when \'Keep Mogar running\' isn\'t finished.</item>
     </string-array>
 
+    <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->
+    <string name="tutorial">How Mogar works</string>
+    <string name="tutorial_subtitle">The short tour again</string>
+    <string name="tut_skip">Skip</string>
+    <string name="tut_next">Next</string>
+    <string name="tut_map">Each dot is someone in your family. The blue one marked \'You\' is you.</string>
+    <string name="tut_card">Tap a dot, or a name at the bottom, to see them. From here you can Call or Text them.</string>
+    <string name="tut_notice">After your phone restarts, this appears. Tap it, so your family can see you again.</string>
+    <string name="tut_update">A red dot on the gear means a new Mogar is out. Tap \'Check for updates\', then Download, then Install.</string>
+    <string name="tut_protect">If your phone shows this box, tap \'Scan app\', then Install. Mogar is safe.</string>
+    <string name="tut_keep">Some phones close Mogar to save battery. In \'Settings\', open \'Keep Mogar running\' and do each step once.</string>
+
     <!-- Send feedback -->
     <string name="feedback">Send feedback</string>
     <string name="feedback_subtitle">Problems or ideas, all optional</string>
