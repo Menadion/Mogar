@@ -118,6 +118,7 @@
     <string name="tut_update">A red dot on the gear means a new Mogar is out. Tap \'Check for updates\', then Download, then Install.</string>
     <string name="tut_protect">If your phone shows this box, tap \'Scan app\', then Install. Mogar is safe.</string>
     <string name="tut_keep">Some phones close Mogar to save battery. In \'Settings\', open \'Keep Mogar running\' and do each step once.</string>
+    <string name="tut_again">To see this tour again, tap the gear, then the \'?\' row, \'How Mogar works\'.</string>
 
     <!-- Send feedback -->
     <string name="feedback">Send feedback</string>

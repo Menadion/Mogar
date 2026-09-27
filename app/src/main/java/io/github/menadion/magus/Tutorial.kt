@@ -80,6 +80,8 @@ private val SLIDES = listOf(
     Slide(R.drawable.tut_update, R.string.tut_update, 0.03f, 0.53f, 0.94f, 0.175f),
     Slide(R.drawable.tut_protect, R.string.tut_protect, 0.12f, 0.622f, 0.76f, 0.07f),
     Slide(R.drawable.tut_keep, R.string.tut_keep, 0.03f, 0.22f, 0.94f, 0.415f),
+    // The way back here (M's ask, 2026-09-27).
+    Slide(R.drawable.tut_settings, R.string.tut_again, 0.03f, 0.695f, 0.94f, 0.09f),
 )
 
 @Composable

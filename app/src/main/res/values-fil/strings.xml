@@ -114,6 +114,7 @@
     <string name="tut_update">Kapag may pulang tuldok sa gear, may bagong Mogar. I-tap ang \'Tingnan kung may update\', tapos I-download, tapos I-install.</string>
     <string name="tut_protect">Kung lumabas ang kahong ito sa phone mo, i-tap ang \'Scan app\', tapos Install. Ligtas ang Mogar.</string>
     <string name="tut_keep">May mga phone na isinasara ang Mogar para makatipid ng baterya. Sa \'Mga setting\', buksan ang \'Panatilihing tumatakbo ang Mogar\' at gawin ang bawat hakbang, isang beses lang.</string>
+    <string name="tut_again">Para makita ulit ang tour na ito, i-tap ang gear, tapos ang \'?\' na row, \'Paano gumagana ang Mogar\'.</string>
 
     <!-- Send feedback -->
     <string name="feedback">Magpadala ng feedback</string>
