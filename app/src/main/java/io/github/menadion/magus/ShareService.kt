@@ -2,6 +2,7 @@ package io.github.menadion.magus
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -29,6 +30,10 @@ private const val SHARE_EVERY_MS = 5 * 60_000L
 private const val CHANNEL_ID = "sharing"
 private const val NOTIFICATION_ID = 1
 
+// The "sharing stopped, open Mogar" notice, its own channel so it can make a sound.
+private const val STOPPED_CHANNEL_ID = "stopped"
+private const val STOPPED_NOTIFICATION_ID = 3
+
 // Keeps sending my location in the background. Android only allows this with a permanent notification,
 // which doubles as the reminder that sharing is on.
 class ShareService : Service() {
@@ -51,6 +56,7 @@ class ShareService : Service() {
     override fun onCreate() {
         super.onCreate()
         isRunning = true
+        clearStoppedNotice(this)
         client = LocationServices.getFusedLocationProviderClient(this)
     }
 
@@ -61,7 +67,10 @@ class ShareService : Service() {
                 this, NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
             )
         } catch (e: SecurityException) {
-            // Android refused background location (e.g. no "Allow all the time"). Stop quietly, don't crash.
+            // Android let the sharer start from the background (after a restart) but won't give it
+            // location there: on Android 14+ that needs the battery exemption from 'Keep Mogar running'.
+            // Don't crash; ask them to open Mogar, which starts it from the foreground.
+            showStoppedNotice(this)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -106,20 +115,64 @@ class ShareService : Service() {
         // True while the background sharer is alive in this process.
         @Volatile var isRunning = false
 
+        // True when the phone is in a family with sharing switched on, whether or not the sharer runs.
+        fun wanted(context: Context): Boolean =
+            Family.savedCode(context) != null && Family.isSharing(context)
+
         // Starts sharing if it's switched on and location is allowed. Safe to call more than once.
         // fromBackground: called with no screen open (after a restart), which needs "Allow all the time".
-        fun start(context: Context, fromBackground: Boolean = false) {
-            if (Family.savedCode(context) == null || !Family.isSharing(context)) return
-            if (!hasLocationPermission(context)) return
+        // Returns whether the sharer was asked to start.
+        fun start(context: Context, fromBackground: Boolean = false): Boolean {
+            if (!wanted(context)) return false
+            if (!hasLocationPermission(context)) return false
             if (fromBackground && ContextCompat.checkSelfPermission(
                     context, Manifest.permission.ACCESS_BACKGROUND_LOCATION
                 ) != PackageManager.PERMISSION_GRANTED
-            ) return
-            ContextCompat.startForegroundService(context, Intent(context, ShareService::class.java))
+            ) return false
+            // A phone with Mogar set to "Restricted" battery use refuses a background start outright.
+            if (fromBackground && context.getSystemService(ActivityManager::class.java).isBackgroundRestricted) {
+                return false
+            }
+            return try {
+                ContextCompat.startForegroundService(context, Intent(context, ShareService::class.java))
+                true
+            } catch (e: IllegalStateException) {
+                // Android 12+ throws ForegroundServiceStartNotAllowedException (an IllegalStateException)
+                // when a background start is refused for a reason the check above didn't catch, such as
+                // a vendor skin's own limits. Before this catch, the throw crashed the boot receiver.
+                false
+            }
         }
 
         fun stop(context: Context) {
             context.stopService(Intent(context, ShareService::class.java))
+        }
+
+        // "Sharing stopped. Open Mogar to turn it back on." Posted by the boot receiver when sharing was
+        // on but couldn't be started from the background; opening the app starts it and clears this.
+        fun showStoppedNotice(context: Context) {
+            val app = LanguageSetting.wrap(context)
+            val manager = app.getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(
+                NotificationChannel(STOPPED_CHANNEL_ID, app.getString(R.string.channel_stopped), NotificationManager.IMPORTANCE_DEFAULT)
+            )
+            val openApp = PendingIntent.getActivity(
+                app, 0, Intent(app, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+            )
+            manager.notify(
+                STOPPED_NOTIFICATION_ID,
+                NotificationCompat.Builder(app, STOPPED_CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                    .setContentTitle(app.getString(R.string.sharing_stopped_title))
+                    .setContentText(app.getString(R.string.sharing_stopped_text))
+                    .setContentIntent(openApp)
+                    .setAutoCancel(true)
+                    .build()
+            )
+        }
+
+        fun clearStoppedNotice(context: Context) {
+            context.getSystemService(NotificationManager::class.java).cancel(STOPPED_NOTIFICATION_ID)
         }
 
         private fun hasLocationPermission(context: Context) =

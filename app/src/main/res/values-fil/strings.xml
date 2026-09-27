@@ -181,6 +181,11 @@
     <string name="channel_sharing">Pag-share ng lokasyon</string>
     <string name="sharing_with">Nakikita ka ng %1$s</string>
 
+    <!-- "Sharing stopped" notice, after a restart the sharer could not start from -->
+    <string name="channel_stopped">Huminto ang pag-share</string>
+    <string name="sharing_stopped_title">Huminto ang pag-share</string>
+    <string name="sharing_stopped_text">Buksan ang Mogar para i-on ulit.</string>
+
     <!-- Update download notification -->
     <string name="channel_updates">Mga update</string>
     <string name="update_notification">Dina-download ang Mogar %1$s</string>

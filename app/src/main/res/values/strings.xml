@@ -185,6 +185,11 @@
     <string name="channel_sharing">Location sharing</string>
     <string name="sharing_with">Sharing your location with %1$s</string>
 
+    <!-- "Sharing stopped" notice, after a restart the sharer could not start from -->
+    <string name="channel_stopped">Sharing stopped</string>
+    <string name="sharing_stopped_title">Sharing stopped</string>
+    <string name="sharing_stopped_text">Open Mogar to turn it back on.</string>
+
     <!-- Update download notification -->
     <string name="channel_updates">Updates</string>
     <string name="update_notification">Downloading Mogar %1$s</string>
