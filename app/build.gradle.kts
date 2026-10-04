@@ -14,8 +14,8 @@ android {
         applicationId = "io.github.menadion.magus"
         minSdk = 26
         targetSdk = 37
-        versionCode = 7
-        versionName = "0.7"
+        versionCode = 8
+        versionName = "0.8"
     }
 
     // Release signing: keystore.properties (git-ignored) points at the key outside the repo.
@@ -39,9 +39,11 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Only 64-bit ARM: every phone in the family. Halves the file; the emulator uses debug.
+            // Both ARM builds. 64-bit covers most phones, but a budget Samsung (the Galaxy A13)
+            // runs a 32-bit Android on 64-bit silicon and refuses a 64-bit-only package outright.
+            // The emulator uses debug, which carries every ABI.
             ndk {
-                abiFilters += "arm64-v8a"
+                abiFilters += listOf("arm64-v8a", "armeabi-v7a")
             }
             if (keystoreFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
