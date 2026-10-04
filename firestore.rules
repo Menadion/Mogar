@@ -6,6 +6,7 @@ rules_version = '2';
 //                                    its creator renames it, hands it on, or deletes it as the last to leave
 //   families/{code}/members/{uid}    only members of that family can read it; you can only write your own
 //   feedback/{id}                    anyone signed in can add one; nobody can read them from a phone
+//   probes/{uid}                     one phone's own settings-page report; nobody can read them from a phone
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -41,6 +42,16 @@ service cloud.firestore {
     // They're read on the laptop by tools/read-feedback.mjs, whose admin key skips these rules.
     match /feedback/{id} {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+    }
+
+    // What the brand's settings pages are actually called on this phone, so a button that goes
+    // nowhere can be fixed from the laptop without the phone in hand. One doc per phone, named
+    // after its own uid, so a later report replaces the old one instead of piling up.
+    // No phone reads any of them; tools/read-phones.mjs does, with the admin key.
+    // Delete is allowed so that answering "no" can withdraw this phone's own report, the same way
+    // it clears the diagnostics on its member document. A phone can only ever touch its own.
+    match /probes/{uid} {
+      allow create, update, delete: if signedIn() && request.auth.uid == uid;
     }
   }
 }
