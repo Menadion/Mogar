@@ -28,6 +28,11 @@ object Diagnostics {
         "app" to appVersion(context),
         "unrestricted" to KeepRunning.isUnrestricted(context),
         "brandStepDone" to (KeepRunning.brand == KeepRunning.Brand.OTHER || KeepRunning.brandStepDone(context)),
+        // Did this phone have any brand page we could open? A tick with this false was made blind,
+        // off written directions, which is legitimate but worth being able to tell apart.
+        "brandPageFound" to (KeepRunning.brand == KeepRunning.Brand.OTHER || KeepRunning.firstWorking(context) != null),
+        // Their own report that the button led nowhere useful.
+        "brandPageFailed" to KeepRunning.pageFailed(context),
         "sharerRunningAtOpen" to prefs(context).getBoolean("sharerRunningAtOpen", false),
         "lastCrash" to prefs(context).getString("lastCrash", null),
     )

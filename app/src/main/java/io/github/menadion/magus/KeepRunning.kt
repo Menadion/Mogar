@@ -4,6 +4,7 @@ import androidx.compose.ui.res.stringResource
 import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -58,12 +59,78 @@ import androidx.lifecycle.LifecycleEventObserver
 object KeepRunning {
     enum class Brand { XIAOMI, VIVO, SAMSUNG, OTHER }
 
-    val brand: Brand = when (Build.MANUFACTURER.lowercase()) {
+    private val realBrand: Brand = when (Build.MANUFACTURER.lowercase()) {
         "xiaomi", "redmi", "poco" -> Brand.XIAOMI
         "vivo", "iqoo" -> Brand.VIVO
         "samsung" -> Brand.SAMSUNG
         else -> Brand.OTHER
     }
+
+    // Debug builds only: lets a test force another brand's card onto this phone, which is the only
+    // way to see the "nothing resolved" path without owning that brand. Set from MainActivity by
+    // `am start ... --es brand vivo`; ignored outright in a release build.
+    private var override: Brand? = null
+
+    val brand: Brand get() = override ?: realBrand
+
+    fun overrideBrand(context: Context, name: String?) {
+        val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!debuggable) return
+        override = when (name?.lowercase()) {
+            "xiaomi" -> Brand.XIAOMI
+            "vivo" -> Brand.VIVO
+            "samsung" -> Brand.SAMSUNG
+            "other" -> Brand.OTHER
+            else -> null
+        }
+    }
+
+    // Each brand's settings page, best guess first. A ROM update can rename or drop any of these,
+    // so they are tried in order and checked before launching rather than fired blindly.
+    //
+    // Xiaomi's first entry was confirmed by hand on a Redmi Note 12 Pro, HyperOS 2 (OS2.0.17.0),
+    // Android 14, on 2026-10-04. The Vivo and Samsung entries are the published names and are NOT
+    // yet confirmed against a real phone; the probe exists to settle them.
+    // Every brand's list, for the probe to report on at once: a phone can only confirm its own
+    // brand, but there is no cost to checking the others and it keeps the report uniform.
+    fun allCandidates(): List<ComponentName> =
+        Brand.entries.flatMap { candidates(it) }
+
+    private fun candidates(brand: Brand): List<ComponentName> = when (brand) {
+        Brand.XIAOMI -> listOf(
+            ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"),
+            ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"),
+        )
+        Brand.VIVO -> listOf(
+            ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"),
+            ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager"),
+            ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"),
+            ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.PurviewTabActivity"),
+        )
+        Brand.SAMSUNG -> listOf(
+            ComponentName("com.samsung.android.lool", "com.samsung.android.sm.battery.ui.BatteryActivity"),
+            ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"),
+            ComponentName("com.samsung.android.sm", "com.samsung.android.sm.ui.battery.BatteryActivity"),
+        )
+        Brand.OTHER -> emptyList()
+    }
+
+    // Can this phone actually open that page? Answerable only because of the <queries> block.
+    private fun exists(context: Context, component: ComponentName): Boolean =
+        try {
+            context.packageManager.getActivityInfo(component, 0).exported
+        } catch (e: Exception) {
+            false
+        }
+
+    // The first candidate this phone really has, or null when it has none of them.
+    fun firstWorking(context: Context): ComponentName? =
+        candidates(brand).firstOrNull { exists(context, it) }
+
+    // True when this phone has a brand step but no page to send them to, so the card has to give
+    // written directions instead of a button that goes somewhere useless.
+    fun needsByHand(context: Context): Boolean =
+        brand != Brand.OTHER && firstWorking(context) == null
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
 
@@ -76,6 +143,14 @@ object KeepRunning {
     fun setBrandStepDone(context: Context, done: Boolean) =
         prefs(context).edit().putBoolean("brandStepDone", done).apply()
 
+    // Their own report that the button went somewhere useless. The app can often work this out by
+    // itself now (see firstWorking), but not always: a page can exist, open, and still not be the
+    // one with the switch on it. Only the person in front of the screen knows that, and before
+    // this there was no way for them to say so except to complain to M in person.
+    fun pageFailed(context: Context) = prefs(context).getBoolean("brandPageFailed", false)
+    fun setPageFailed(context: Context, failed: Boolean) =
+        prefs(context).edit().putBoolean("brandPageFailed", failed).apply()
+
     // Step 1: Android's own "no battery restrictions" list. This one the app can check.
     fun isUnrestricted(context: Context): Boolean =
         context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
@@ -87,40 +162,21 @@ object KeepRunning {
         if (!tryOpen(context, ask)) openAppInfo(context)
     }
 
-    // Step 2: the brand's own page, or Mogar's App info page if that page doesn't exist on this phone.
+    // Step 2: walk this brand's candidates and open the first one the phone really has.
+    //
+    // The old version fired one hardcoded name and, when it failed, quietly dropped the person on
+    // Mogar's App info page. That is what M's father met: a button saying "turn on Autostart" that
+    // landed somewhere with no Autostart on it, so he ticked "I did this" and the step was recorded
+    // as done. Now a page that isn't there sends nobody anywhere; the card gives written directions
+    // instead (see needsByHand).
     fun openBrandPage(context: Context) {
-        when (brand) {
-            // Xiaomi's Autostart list lives in its Security app (HyperOS 2 moved it off App info).
-            Brand.XIAOMI -> {
-                val autostart = Intent().setComponent(
-                    ComponentName(
-                        "com.miui.securitycenter",
-                        "com.miui.permcenter.autostart.AutoStartManagementActivity",
-                    )
-                )
-                if (!tryOpen(context, autostart)) openAppInfo(context)
-            }
-            Brand.VIVO -> {
-                val autostart = Intent().setComponent(
-                    ComponentName(
-                        "com.vivo.permissionmanager",
-                        "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
-                    )
-                )
-                if (!tryOpen(context, autostart)) openAppInfo(context)
-            }
-            // Samsung's Device care battery page holds Background usage limits (sleeping apps).
-            Brand.SAMSUNG -> {
-                val battery = Intent().setComponent(
-                    ComponentName(
-                        "com.samsung.android.lool",
-                        "com.samsung.android.sm.battery.ui.BatteryActivity",
-                    )
-                )
-                if (!tryOpen(context, battery)) openAppInfo(context)
-            }
-            Brand.OTHER -> openAppInfo(context)
+        val target = firstWorking(context)
+        if (target == null) {
+            // Nothing to deep-link to. Plain phone Settings, with the card's own words to follow.
+            if (!tryOpen(context, Intent(Settings.ACTION_SETTINGS))) openAppInfo(context)
+            return
         }
+        if (!tryOpen(context, Intent().setComponent(target))) openAppInfo(context)
     }
 
     // Last step: Android removes an app's permissions if it isn't opened for a few months.
@@ -208,22 +264,29 @@ fun KeepRunningScreen(onDone: () -> Unit) {
                 onButton = { KeepRunning.askUnrestricted(context) },
             )
 
+            // When this phone has none of the brand's pages, the card stops promising a button that
+            // works and spells the route out instead. The old fallback was one trailing sentence
+            // inside the normal text, which M's father had in front of him and still missed.
+            val byHand = remember(checks) { KeepRunning.needsByHand(context) }
             when (KeepRunning.brand) {
                 KeepRunning.Brand.XIAOMI -> BrandStep(
                     title = stringResource(R.string.xiaomi_title),
-                    detail = stringResource(R.string.xiaomi_detail),
+                    detail = stringResource(if (byHand) R.string.xiaomi_by_hand else R.string.xiaomi_detail),
+                    byHand = byHand,
                     done = brandDone,
                     onDoneChange = { brandDone = it; KeepRunning.setBrandStepDone(context, it) },
                 )
                 KeepRunning.Brand.VIVO -> BrandStep(
                     title = stringResource(R.string.vivo_title),
-                    detail = stringResource(R.string.vivo_detail),
+                    detail = stringResource(if (byHand) R.string.vivo_by_hand else R.string.vivo_detail),
+                    byHand = byHand,
                     done = brandDone,
                     onDoneChange = { brandDone = it; KeepRunning.setBrandStepDone(context, it) },
                 )
                 KeepRunning.Brand.SAMSUNG -> BrandStep(
                     title = stringResource(R.string.samsung_title),
-                    detail = stringResource(R.string.samsung_detail),
+                    detail = stringResource(if (byHand) R.string.samsung_by_hand else R.string.samsung_detail),
+                    byHand = byHand,
                     done = brandDone,
                     onDoneChange = { brandDone = it; KeepRunning.setBrandStepDone(context, it) },
                 )
@@ -252,19 +315,43 @@ fun KeepRunningScreen(onDone: () -> Unit) {
 }
 
 @Composable
-private fun BrandStep(title: String, detail: String, done: Boolean, onDoneChange: (Boolean) -> Unit) {
+private fun BrandStep(title: String, detail: String, byHand: Boolean, done: Boolean, onDoneChange: (Boolean) -> Unit) {
     val context = LocalContext.current
     StepCard(
         number = 2,
         title = title,
         detail = detail,
         done = done,
-        buttonText = stringResource(R.string.open_settings),
+        // No page to jump to, so the button stops claiming one and opens the phone's own Settings.
+        buttonText = stringResource(if (byHand) R.string.open_phone_settings else R.string.open_settings),
         onButton = { KeepRunning.openBrandPage(context) },
     ) {
+        // The two answers contradict each other, so ticking one clears the other (M's call,
+        // 2026-10-05). Two independent boxes allowed "I did it" and "it didn't work" at once,
+        // which says nothing and is exactly the sort of thing an unsure person ticks.
+        var failed by remember { mutableStateOf(KeepRunning.pageFailed(context)) }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 48.dp)) {
-            Checkbox(checked = done, onCheckedChange = onDoneChange)
+            Checkbox(
+                checked = done,
+                onCheckedChange = {
+                    onDoneChange(it)
+                    if (it) { failed = false; KeepRunning.setPageFailed(context, false) }
+                },
+            )
             Text(stringResource(R.string.i_did_this), style = MaterialTheme.typography.bodyLarge)
+        }
+        // The other answer. Before this the only two options were to tick a box they hadn't earned
+        // or to say nothing, and M's father did the first.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 48.dp)) {
+            Checkbox(
+                checked = failed,
+                onCheckedChange = {
+                    failed = it
+                    KeepRunning.setPageFailed(context, it)
+                    if (it) onDoneChange(false)
+                },
+            )
+            Text(stringResource(R.string.button_went_nowhere), style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

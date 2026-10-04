@@ -220,10 +220,21 @@ object Family {
                 "battery" to battery,
                 "sharing" to true,
                 "updatedAt" to FieldValue.serverTimestamp(),
-                "diag" to Diagnostics.snapshot(context),
-            ),
+                // Only with consent (see Consent). Left out entirely otherwise; the merge below
+                // means leaving it out never overwrites, so a "no" is cleared by clearDiagnostics.
+            ) + if (Consent.allowed(context)) mapOf("diag" to Diagnostics.snapshot(context)) else emptyMap(),
             SetOptions.merge(),
         )
+    }
+
+    // Removes the diagnostics this phone already sent. Called when someone answers no, or changes
+    // their mind in Settings, so the answer reaches backwards and not just forwards.
+    fun clearDiagnostics(context: Context) {
+        val code = savedCode(context) ?: return
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        db.collection("families").document(code).collection("members").document(uid)
+            .update("diag", FieldValue.delete())
+            .addOnFailureListener { Log.w("Mogar", "could not clear diagnostics", it) }
     }
 
     // Calls onChange with everyone in my family who has sent a location, every time anyone's changes.

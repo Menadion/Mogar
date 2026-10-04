@@ -97,14 +97,15 @@
     <string name="ok">OK</string>
 
     <!-- What's new: this version's notes only, rewritten each release. See WhatsNew.kt -->
-    <string name="whats_new_version" translatable="false">0.7</string>
+    <string name="whats_new_version" translatable="false">0.8</string>
     <string name="whats_new">What\'s new</string>
     <string name="whats_new_subtitle">What changed in Mogar %1$s</string>
     <string name="whats_new_title">What\'s new in Mogar %1$s</string>
     <string-array name="whats_new_items">
-        <item>After your phone restarts, a notice asks you to open Mogar so sharing comes back.</item>
-        <item>A short tour of Mogar: \'How Mogar works\' in \'Settings\'.</item>
-        <item>\'Auto\' no longer wraps in Filipino.</item>
+        <item>Mogar now asks before sending anything about your phone. You can change your answer in \'Settings\'.</item>
+        <item>In \'Keep Mogar running\', the button now opens the right page, or tells you where to look when your phone hides it.</item>
+        <item>You can now say when a button didn\'t take you where it promised.</item>
+        <item>Mogar now installs on more phones.</item>
     </string-array>
 
     <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->
@@ -123,6 +124,13 @@
     <!-- Send feedback -->
     <string name="feedback">Send feedback</string>
     <string name="feedback_subtitle">Problems or ideas, all optional</string>
+
+    <!-- Asked once, then changeable from Settings. See Consent.kt. -->
+    <string name="consent_title">Help fix problems?</string>
+    <string name="consent_body">Mogar can send what phone you have and whether its settings are correct, so problems can be fixed when something stops working. It never sends your location. Sharing your location works the same either way.</string>
+    <string name="consent_yes">Yes</string>
+    <string name="consent_no">No</string>
+    <string name="consent_row">Help fix problems</string>
     <string name="feedback_settings_q">Did the buttons in \'Keep Mogar running\' take you to the right page?</string>
     <string name="feedback_yes">Yes</string>
     <string name="feedback_no">No</string>
@@ -171,6 +179,14 @@
     <string name="vivo_detail">Tap the button. Turn on Mogar in the list that opens. If you see \'App info\' instead, open \'Battery\' and allow high background power use.</string>
     <string name="samsung_title">Samsung: don\'t put Mogar to sleep</string>
     <string name="samsung_detail">Tap the button. Under \'Background usage limits\', turn off \'Put unused apps to sleep\'. Then open \'Never sleeping apps\' and add Mogar. On an older Samsung this is under \'Device care\', \'Battery\', then the ⋮ menu.</string>
+
+    <!-- Shown instead of the above when this phone has none of the brand's pages, so the button
+         can only reach plain Settings and the route has to be written out. See KeepRunning. -->
+    <string name="open_phone_settings">Open phone settings</string>
+    <string name="xiaomi_by_hand">This phone keeps \'Autostart\' somewhere Mogar cannot open directly. Tap the button, then search settings for \'Autostart\', and turn it on for Mogar.</string>
+    <string name="vivo_by_hand">This phone keeps background permission somewhere Mogar cannot open directly. Tap the button, then search settings for \'Background\' or \'Battery\', and allow Mogar to run in the background.</string>
+    <string name="samsung_by_hand">This phone keeps the sleeping apps list somewhere Mogar cannot open directly. Tap the button, then search settings for \'Sleeping apps\', and make sure Mogar is not on that list.</string>
+    <string name="button_went_nowhere">The button didn\'t take me there</string>
     <string name="pause_title">Don\'t pause Mogar when unused</string>
     <string name="pause_detail">Tap the button, then turn off \'Pause app activity if unused\'. Otherwise your phone stops Mogar after a few months without opening it.</string>
     <string name="open_setting">Open setting</string>

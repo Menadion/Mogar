@@ -17,6 +17,26 @@
     <!-- Hand a downloaded update to Android's installer ("Install unknown apps", asked once) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+      Android 11 and up hide other apps from this one unless they are named here. Without this
+      block the app cannot even ask whether a brand's settings page exists, so it can only fire an
+      intent blindly and watch it fail. These are the settings apps the Keep running steps point
+      at (see KeepRunning). Naming packages explicitly needs no permission.
+    -->
+    <queries>
+        <!-- Xiaomi, Redmi, Poco: Autostart lives in Security, battery saver in Power keeper -->
+        <package android:name="com.miui.securitycenter" />
+        <package android:name="com.miui.powerkeeper" />
+        <!-- Vivo, iQOO: background start management, which has moved between these over the years -->
+        <package android:name="com.vivo.permissionmanager" />
+        <package android:name="com.iqoo.secure" />
+        <package android:name="com.vivo.abe" />
+        <!-- Samsung: Device care holds the background usage limits -->
+        <package android:name="com.samsung.android.lool" />
+        <package android:name="com.samsung.android.sm" />
+        <package android:name="com.samsung.android.sm_cn" />
+    </queries>
+
     <application
         android:name=".MogarApp"
         android:label="@string/app_name"

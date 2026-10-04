@@ -98,9 +98,10 @@
     <string name="whats_new_subtitle">Ano ang nagbago sa Mogar %1$s</string>
     <string name="whats_new_title">Ano ang bago sa Mogar %1$s</string>
     <string-array name="whats_new_items">
-        <item>Pagka-restart ng phone mo, may lalabas na paalala para buksan ang Mogar at bumalik ang pag-share.</item>
-        <item>Isang maikling tour ng Mogar: \'Paano gumagana ang Mogar\' sa \'Mga setting\'.</item>
-        <item>Hindi na napuputol ang \'Auto\' sa Filipino.</item>
+        <item>Nagtatanong na ang Mogar bago magpadala ng kahit ano tungkol sa selpon mo. Mababago mo ang sagot sa \'Mga setting\'.</item>
+        <item>Sa \'Panatilihing tumatakbo ang Mogar\', bubuksan na ng button ang tamang page, o sasabihin nito kung saan hahanapin kapag nakatago ito sa selpon mo.</item>
+        <item>Puwede mo nang sabihin kapag mali ang binuksan ng button.</item>
+        <item>Mas marami nang selpon ang puwedeng mag-install ng Mogar.</item>
     </string-array>
 
     <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->
@@ -119,6 +120,13 @@
     <!-- Send feedback -->
     <string name="feedback">Magpadala ng feedback</string>
     <string name="feedback_subtitle">Mga problema o ideya, opsyonal lahat</string>
+
+    <!-- M's wording, 2026-10-04: "tumulong" not "tulong", "selpon" not "telepono". -->
+    <string name="consent_title">Tumulong sa pag-ayos ng problema?</string>
+    <string name="consent_body">Puwedeng ipadala ng Mogar kung anong selpon ang gamit mo at kung tama ang mga setting nito, para maayos kapag may hindi gumagana. Hindi nito ipinapadala ang lokasyon mo. Gagana pa rin ang pag-share ng lokasyon kahit alin ang piliin mo.</string>
+    <string name="consent_yes">Oo</string>
+    <string name="consent_no">Hindi</string>
+    <string name="consent_row">Tumulong sa pag-ayos</string>
     <string name="feedback_settings_q">Dinala ka ba ng mga button sa \'Panatilihing tumatakbo ang Mogar\' sa tamang page?</string>
     <string name="feedback_yes">Oo</string>
     <string name="feedback_no">Hindi</string>
@@ -167,6 +175,13 @@
     <string name="vivo_detail">Pindutin ang button. I-on ang Mogar sa listahang bubukas. Kung \'App info\' ang lumabas, buksan ang \'Battery\' at payagan ang high background power use.</string>
     <string name="samsung_title">Samsung: huwag patulugin ang Mogar</string>
     <string name="samsung_detail">Pindutin ang button. Sa ilalim ng \'Background usage limits\', i-off ang \'Put unused apps to sleep\'. Tapos buksan ang \'Never sleeping apps\' at idagdag ang Mogar. Sa mas lumang Samsung, nasa \'Device care\', \'Battery\', tapos sa ⋮ menu ito.</string>
+
+    <!-- Kapag wala sa selpon na ito ang page ng brand, isinusulat na lang ang daan. See KeepRunning. -->
+    <string name="open_phone_settings">Buksan ang settings ng selpon</string>
+    <string name="xiaomi_by_hand">Hindi direktang mabuksan ng Mogar ang \'Autostart\' sa selpon na ito. Pindutin ang button, tapos hanapin sa settings ang \'Autostart\', at i-on ito para sa Mogar.</string>
+    <string name="vivo_by_hand">Hindi direktang mabuksan ng Mogar ang background permission sa selpon na ito. Pindutin ang button, tapos hanapin sa settings ang \'Background\' o \'Battery\', at payagan ang Mogar na tumakbo sa background.</string>
+    <string name="samsung_by_hand">Hindi direktang mabuksan ng Mogar ang listahan ng sleeping apps sa selpon na ito. Pindutin ang button, tapos hanapin sa settings ang \'Sleeping apps\', at siguraduhing wala ang Mogar sa listahang iyon.</string>
+    <string name="button_went_nowhere">Mali ang binuksan ng button</string>
     <string name="pause_title">Huwag i-pause ang Mogar kapag hindi ginagamit</string>
     <string name="pause_detail">Pindutin ang button, tapos i-off ang \'Pause app activity if unused\'. Kung hindi, ititigil ng phone mo ang Mogar pagkatapos ng ilang buwang hindi nabubuksan.</string>
     <string name="open_setting">Buksan ang setting</string>

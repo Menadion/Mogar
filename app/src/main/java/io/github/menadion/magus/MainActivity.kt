@@ -151,6 +151,9 @@ class MainActivity : ComponentActivity() {
     // Back from Android's settings: the Keep running steps may have changed, and with them the gear's dot.
     override fun onResume() {
         super.onResume()
+        // Debug builds only, for testing another brand's card on whatever phone is to hand:
+        //   am start -n io.github.menadion.magus/.MainActivity --es brand vivo
+        KeepRunning.overrideBrand(this, intent?.getStringExtra("brand"))
         KeepRunning.refresh(this)
     }
 
@@ -198,6 +201,8 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     var showFamilyPage by remember { mutableStateOf(false) }
     var showWhatsNew by remember { mutableStateOf(WhatsNew.dueNow(context)) }
     var showTutorial by remember { mutableStateOf(Tutorial.dueNow(context)) }
+    // Asked before anything else is shown, and before any diagnostics are sent (see Consent).
+    var showConsent by remember { mutableStateOf(Consent.dueNow(context)) }
     var familyName by remember { mutableStateOf(Family.savedFamilyName(context)) }
     var familyCreator by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -215,6 +220,13 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             KeepRunning.markIntroShown(context)
             showKeepRunning = true
         }
+    }
+
+    // Asks this phone what its brand's settings pages are really called, once per Mogar version,
+    // and only with consent. Keyed on showConsent so it runs the moment the box is answered yes,
+    // rather than waiting for the next launch (see Probe).
+    LaunchedEffect(showConsent) {
+        if (!showConsent) Probe.run(context)
     }
 
     // Everyone else in the family, live. The map and the card both read this one list.
@@ -458,15 +470,21 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
         }
 
         // The short tour: once after setup, after the Keep running steps; again from Settings.
-        if (showTutorial && !showKeepRunning && !explainBackground) {
+        if (showTutorial && !showKeepRunning && !explainBackground && !showConsent) {
             val close = { showTutorial = false; Tutorial.markSeen(context) }
             BackHandler(onBack = close)
             TutorialScreen(onDone = close)
         }
     }
 
+    // Asked once, ahead of What's new and the tour, so it isn't buried under them. Nothing is sent
+    // until it's answered, so there is no back key and no tapping outside.
+    if (showConsent) {
+        ConsentDialog(onAnswered = { showConsent = false })
+    }
+
     // After an update, once the map itself is showing: never over another screen or box.
-    if (showWhatsNew && !showSettings && !showKeepRunning && !showFamilyPage && !explainBackground && !showTutorial) {
+    if (showWhatsNew && !showSettings && !showKeepRunning && !showFamilyPage && !explainBackground && !showTutorial && !showConsent) {
         WhatsNewDialog(onClose = {
             showWhatsNew = false
             WhatsNew.markSeen(context)

@@ -66,6 +66,8 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
     var showAbout by remember { mutableStateOf(false) }
     var showFeedback by remember { mutableStateOf(false) }
     var showWhatsNew by remember { mutableStateOf(false) }
+    // Held here, not read from prefs each draw, or the segmented buttons wouldn't move on a tap.
+    var consentAllowed by remember { mutableStateOf(Consent.allowed(context)) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = colors.surface) {
         Box(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -153,6 +155,18 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                             subtitle = stringResource(R.string.feedback_subtitle),
                             icon = { Icon(Icons.Default.Email, contentDescription = null, tint = colors.primary) },
                             onClick = { showFeedback = true },
+                        )
+                        Divider()
+                        // Answered once in a box after setup; this is where it's changed later.
+                        // A "no" also deletes what this phone already sent (see Consent).
+                        ChoiceRow(
+                            label = stringResource(R.string.consent_row),
+                            choices = listOf(
+                                "yes" to stringResource(R.string.consent_yes),
+                                "no" to stringResource(R.string.consent_no),
+                            ),
+                            selected = if (consentAllowed) "yes" else "no",
+                            onPick = { consentAllowed = it == "yes"; Consent.set(context, consentAllowed) },
                         )
                     }
                 }
