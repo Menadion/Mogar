@@ -88,9 +88,14 @@ object KeepRunning {
     // Each brand's settings page, best guess first. A ROM update can rename or drop any of these,
     // so they are tried in order and checked before launching rather than fired blindly.
     //
-    // Xiaomi's first entry was confirmed by hand on a Redmi Note 12 Pro, HyperOS 2 (OS2.0.17.0),
-    // Android 14, on 2026-10-04. The Vivo and Samsung entries are the published names and are NOT
-    // yet confirmed against a real phone; the probe exists to settle them.
+    // Confirmed against real phones by the 0.8 probes, read 2026-10-10:
+    //   Xiaomi   both entries resolve on a Redmi Note 12 Pro, HyperOS 2 (OS2.0.17.0), Android 14.
+    //   Vivo     the first entry resolves on a vivo 1910, Android 12.
+    //   Samsung  the first entry resolves on an SM-A135F, Android 14.
+    // The one phone none of them reach is a vivo V2427 on Android 16, which has neither
+    // com.vivo.permissionmanager nor com.iqoo.secure installed at all, so there is no renamed
+    // activity to chase. Its only surviving settings app is com.vivo.abe, hence the last Vivo
+    // entry below.
     // Every brand's list, for the probe to report on at once: a phone can only confirm its own
     // brand, but there is no cost to checking the others and it keeps the report uniform.
     fun allCandidates(): List<ComponentName> =
@@ -106,6 +111,12 @@ object KeepRunning {
             ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager"),
             ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"),
             ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.PurviewTabActivity"),
+            // Android 16 vivo: "High background power consumption", the only page the probe still
+            // finds on a V2427. Last on purpose, so a phone that has the proper background-start
+            // page keeps it; this one is only reached when all four above are missing. Whether it
+            // is open to other apps is unknown until a phone reports back, and exists() gates on
+            // that, so a closed page costs nothing and the written card stays.
+            ComponentName("com.vivo.abe", "com.vivo.applicationbehaviorengine.ui.ExcessivePowerManagerActivity"),
         )
         Brand.SAMSUNG -> listOf(
             ComponentName("com.samsung.android.lool", "com.samsung.android.sm.battery.ui.BatteryActivity"),

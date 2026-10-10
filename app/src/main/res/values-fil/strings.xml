@@ -172,7 +172,7 @@
     <string name="xiaomi_title">Xiaomi: i-on ang \'Autostart\'</string>
     <string name="xiaomi_detail">Pindutin ang button. Sa page na bubukas, i-on ang \'Autostart\'.</string>
     <string name="vivo_title">Vivo: payagan ang background use</string>
-    <string name="vivo_detail">Pindutin ang button. I-on ang Mogar sa listahang bubukas. Kung \'App info\' ang lumabas, buksan ang \'Battery\' at payagan ang high background power use.</string>
+    <string name="vivo_detail">Pindutin ang button. I-on ang Mogar sa listahang bubukas. Maaaring \'Background start\' o \'High background power use\' ang pangalan ng listahan. Tama ang alinman sa dalawa.</string>
     <string name="samsung_title">Samsung: huwag patulugin ang Mogar</string>
     <string name="samsung_detail">Pindutin ang button. Sa ilalim ng \'Background usage limits\', i-off ang \'Put unused apps to sleep\'. Tapos buksan ang \'Never sleeping apps\' at idagdag ang Mogar. Sa mas lumang Samsung, nasa \'Device care\', \'Battery\', tapos sa ⋮ menu ito.</string>
 

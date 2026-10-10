@@ -176,7 +176,7 @@
     <string name="xiaomi_title">Xiaomi: turn on \'Autostart\'</string>
     <string name="xiaomi_detail">Tap the button. On the page that opens, turn on \'Autostart\'.</string>
     <string name="vivo_title">Vivo: allow background use</string>
-    <string name="vivo_detail">Tap the button. Turn on Mogar in the list that opens. If you see \'App info\' instead, open \'Battery\' and allow high background power use.</string>
+    <string name="vivo_detail">Tap the button. Turn on Mogar in the list that opens. The list may be called \'Background start\' or \'High background power use\'. Either one is the right place.</string>
     <string name="samsung_title">Samsung: don\'t put Mogar to sleep</string>
     <string name="samsung_detail">Tap the button. Under \'Background usage limits\', turn off \'Put unused apps to sleep\'. Then open \'Never sleeping apps\' and add Mogar. On an older Samsung this is under \'Device care\', \'Battery\', then the ⋮ menu.</string>
 
