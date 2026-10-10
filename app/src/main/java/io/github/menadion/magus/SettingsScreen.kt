@@ -98,18 +98,6 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                             selected = ThemeSetting.mode,
                             onPick = { ThemeSetting.set(context, it) },
                         )
-                        Divider()
-                        // Picking a language recreates the screen, so it redraws in that language at once.
-                        ChoiceRow(
-                            label = stringResource(R.string.language),
-                            choices = listOf(
-                                LanguageSetting.SYSTEM to stringResource(R.string.language_auto),
-                                LanguageSetting.ENGLISH to stringResource(R.string.language_english),
-                                LanguageSetting.FILIPINO to stringResource(R.string.language_filipino),
-                            ),
-                            selected = LanguageSetting.mode,
-                            onPick = { LanguageSetting.set(context as Activity, it) },
-                        )
                     }
                     Group(stringResource(R.string.app)) {
                         NavRow(

@@ -69,11 +69,7 @@
     <string name="theme_auto">Auto</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
-    <string name="language">Language</string>
-    <string name="language_auto">Auto</string>
     <!-- Each language's own name, the same in every translation. -->
-    <string name="language_english">English</string>
-    <string name="language_filipino">Filipino</string>
     <string name="app">App</string>
     <string name="keep_running">Keep Mogar running</string>
     <string name="keep_running_subtitle">Stop your phone from closing Mogar</string>

@@ -9,17 +9,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.util.Locale
 
-// The language switch in Settings. Auto follows the phone; English and Filipino override it.
-// Applied by wrapping the activity's and the service's base context (see attachBaseContext in
-// MainActivity and ShareService), so every getString and stringResource reads the chosen
-// language. Picking one relaunches the screen on Settings, so the change is instant. (Activity.recreate()
-// was tried first: on Android 15 it brought the screen back inset below the status bar.) Spec: Backlog,
-// "Tagalog switch", 2026-09-25; M's call the same evening: Settings only, Auto by default,
-// the language is called Filipino.
+// What is left of the language switch after Filipino was dropped on 2026-10-10 (M's call, having
+// asked both parents, who said the Tagalog localisation was not necessary). The Settings row and
+// the values-fil resources are gone, so there is nothing to choose between any more.
+//
+// The object stays for one reason: phones in the family may have "fil" sitting in their prefs from
+// an earlier version, and wrap() applied whatever was stored on every launch. Removing only the row
+// would have left such a phone in Filipino permanently, with no UI left to change it back. load()
+// now reads a stored "fil" as SYSTEM, and with values-fil deleted there is no Filipino to fall into
+// regardless. It can go altogether once no phone in the family is running 0.8 or older; that means
+// unpicking attachBaseContext in MainActivity and ShareService, plus Updates and the language field
+// Feedback reports.
 object LanguageSetting {
     const val SYSTEM = "system"
     const val ENGLISH = "en"
-    const val FILIPINO = "fil"
+
+    // Only ever read from a phone's saved prefs now, never written again.
+    private const val RETIRED_FILIPINO = "fil"
 
     // Intent extra: the relaunched screen opens on Settings, where the switch was.
     const val OPEN_SETTINGS = "openSettings"
@@ -28,7 +34,9 @@ object LanguageSetting {
         private set
 
     fun load(context: Context) {
-        mode = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).getString("language", SYSTEM) ?: SYSTEM
+        val saved = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).getString("language", SYSTEM) ?: SYSTEM
+        // A phone that picked Filipino before the switch was removed goes back to following itself.
+        mode = if (saved == RETIRED_FILIPINO) SYSTEM else saved
     }
 
     fun set(activity: Activity, value: String) {
