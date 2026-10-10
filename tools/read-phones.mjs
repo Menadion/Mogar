@@ -57,6 +57,10 @@ function plain(value) {
 
 // "4 minutes ago". The number on its own is unreadable, and the gap is the whole point: a phone
 // that is sharing but last spoke yesterday is being killed, and that only shows as elapsed time.
+// A field an older Mogar never sent comes back undefined, which reads far too much like "false"
+// in a column of true/false. Say so instead.
+const said = (v) => (v === undefined || v === null ? "not reported (older Mogar)" : v);
+
 function ago(iso) {
   if (!iso) return "never";
   const ms = Date.now() - new Date(iso).getTime();
@@ -110,15 +114,16 @@ for (const row of rows) {
   console.log(`  mogar      ${d.app ?? "?"}`);
   console.log(`  sharing switch                ${m.sharing}`);
   console.log(`  last location                 ${ago(m.updatedAt)}`);
-  console.log(`  step 1 battery unrestricted   ${d.unrestricted}`);
-  console.log(`  step 2 brand step ticked      ${d.brandStepDone}`);
+  console.log(`  step 1 battery unrestricted   ${said(d.unrestricted)}`);
+  console.log(`  step 2 brand step ticked      ${said(d.brandStepDone)}`);
   // Whether this phone had ANY brand page to open. A tick with this false was made off the
   // written card rather than a button, which is legitimate but is also what a blind tick
   // looks like, so the two have to be told apart.
-  console.log(`  brand page existed            ${d.brandPageFound}`);
-  console.log(`  they said the button failed   ${d.brandPageFailed}`);
+  console.log(`  brand page existed            ${said(d.brandPageFound)}`);
+  console.log(`  step 3 never auto-paused      ${said(d.neverPaused)}`);
+  console.log(`  they said the button failed   ${said(d.brandPageFailed)}`);
   // Read at the last cold open and then re-sent with every location, so it goes stale: a phone
   // sending right now can still report false here. "last location" above is the live signal.
-  console.log(`  sharer alive at last open     ${d.sharerRunningAtOpen}`);
+  console.log(`  sharer alive at last open     ${said(d.sharerRunningAtOpen)}`);
   if (d.lastCrash) console.log(`  last crash ${d.lastCrash}`);
 }

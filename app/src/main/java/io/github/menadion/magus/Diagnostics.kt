@@ -4,9 +4,9 @@ import android.app.Application
 import android.content.Context
 import android.os.Build
 
-// Six facts about this phone, sent with every location so a quiet dot can be read from afar:
-// which phone, which Mogar, whether the keep-running steps were done, whether the sharer was alive
-// the last time the app opened, and the last crash if there was one.
+// What this phone is and how its setup went, sent with every location so a quiet dot can be read
+// from afar: which phone, which Mogar, how each keep-running step stands, whether the sharer was
+// alive the last time the app opened, and the last crash if there was one.
 object Diagnostics {
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
 
@@ -33,6 +33,10 @@ object Diagnostics {
         "brandPageFound" to (KeepRunning.brand == KeepRunning.Brand.OTHER || KeepRunning.firstWorking(context) != null),
         // Their own report that the button led nowhere useful.
         "brandPageFailed" to KeepRunning.pageFailed(context),
+        // Step 3, and the only step the app can settle by itself rather than take their word for.
+        // It went unreported until 2026-10-10, when a vivo 1910 turned out to have it undone and
+        // the only way that surfaced was a photo of the phone.
+        "neverPaused" to KeepRunning.neverPaused(context),
         "sharerRunningAtOpen" to prefs(context).getBoolean("sharerRunningAtOpen", false),
         "lastCrash" to prefs(context).getString("lastCrash", null),
     )

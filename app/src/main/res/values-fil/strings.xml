@@ -183,7 +183,7 @@
     <string name="samsung_by_hand">Hindi direktang mabuksan ng Mogar ang listahan ng sleeping apps sa selpon na ito. Pindutin ang button, tapos hanapin sa settings ang \'Sleeping apps\', at siguraduhing wala ang Mogar sa listahang iyon.</string>
     <string name="button_went_nowhere">Mali ang binuksan ng button</string>
     <string name="pause_title">Huwag i-pause ang Mogar kapag hindi ginagamit</string>
-    <string name="pause_detail">Pindutin ang button, tapos i-off ang \'Pause app activity if unused\'. Kung hindi, ititigil ng phone mo ang Mogar pagkatapos ng ilang buwang hindi nabubuksan.</string>
+    <string name="pause_detail">Pindutin ang button, tapos i-off ang \'Pause app activity if unused\'. Sa ibang phone, \'Remove permissions and free up space\' ang tawag dito. Kung hindi, ititigil ng phone mo ang Mogar pagkatapos ng ilang buwang hindi nabubuksan.</string>
     <string name="open_setting">Buksan ang setting</string>
     <string name="open_settings">Buksan ang mga setting</string>
     <string name="i_did_this">Ginawa ko na ito</string>
