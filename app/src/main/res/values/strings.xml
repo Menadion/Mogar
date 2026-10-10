@@ -93,15 +93,15 @@
     <string name="ok">OK</string>
 
     <!-- What's new: this version's notes only, rewritten each release. See WhatsNew.kt -->
-    <string name="whats_new_version" translatable="false">0.8</string>
+    <string name="whats_new_version" translatable="false">0.9</string>
     <string name="whats_new">What\'s new</string>
     <string name="whats_new_subtitle">What changed in Mogar %1$s</string>
     <string name="whats_new_title">What\'s new in Mogar %1$s</string>
     <string-array name="whats_new_items">
-        <item>Mogar now asks before sending anything about your phone. You can change your answer in \'Settings\'.</item>
-        <item>In \'Keep Mogar running\', the button now opens the right page, or tells you where to look when your phone hides it.</item>
-        <item>You can now say when a button didn\'t take you where it promised.</item>
-        <item>Mogar now installs on more phones.</item>
+        <item>Mogar now looks for updates by itself and tells you when one is ready. It downloads them on Wi-Fi so it doesn\'t use your load. You can turn this off in \'Settings\'.</item>
+        <item>The map now shows that it is loading, and says so when it cannot reach the internet.</item>
+        <item>Mogar is a smaller download than before.</item>
+        <item>In \'Keep Mogar running\', the last step now gives the other names your phone may use for that setting.</item>
     </string-array>
 
     <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->
