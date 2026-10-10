@@ -92,4 +92,7 @@ dependencies {
 
     implementation("org.maplibre.gl:android-sdk:13.6.1")
     implementation("com.google.android.gms:play-services-location:21.4.0")
+
+    // The daily update check, which has to run on a phone nobody opens (see AutoUpdate).
+    implementation("androidx.work:work-runtime-ktx:2.11.0")
 }

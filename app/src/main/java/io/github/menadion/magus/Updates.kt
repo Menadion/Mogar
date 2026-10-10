@@ -198,6 +198,24 @@ object Updates {
         }
     }
 
+    // startDownload fires the download off and returns at once, which is right for a button and
+    // wrong for the background check: that has to know whether the file actually arrived before it
+    // can decide which notification to post. Same work, awaited.
+    suspend fun downloadAndWait(context: Context, release: Release): Boolean {
+        if (!release.url.endsWith(".apk")) return false
+        val app = context.applicationContext
+        withContext(Dispatchers.Main) {
+            download = Download.DOWNLOADING
+            percent = 0
+        }
+        val result = runCatching { fetchApk(app, release) }
+        app.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
+        withContext(Dispatchers.Main) {
+            download = if (result.isSuccess) Download.IDLE else Download.FAILED
+        }
+        return result.isSuccess
+    }
+
     // Writes to a .part file and renames it when complete, so a broken-off download never looks ready.
     private suspend fun fetchApk(context: Context, release: Release) {
         folder(context).mkdirs()

@@ -5,5 +5,8 @@
         <activity
             android:name=".GlobeTestActivity"
             android:exported="true" />
+        <activity
+            android:name=".UpdateCheckNowActivity"
+            android:exported="true" />
     </application>
 </manifest>

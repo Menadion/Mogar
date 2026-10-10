@@ -183,6 +183,14 @@
     <string name="vivo_by_hand">This phone keeps background permission somewhere Mogar cannot open directly. Tap the button, then search settings for \'Background\' or \'Battery\', and allow Mogar to run in the background.</string>
     <string name="samsung_by_hand">This phone keeps the sleeping apps list somewhere Mogar cannot open directly. Tap the button, then search settings for \'Sleeping apps\', and make sure Mogar is not on that list.</string>
     <string name="button_went_nowhere">The button didn\'t take me there</string>
+    <string name="channel_update_ready">Updates ready</string>
+    <string name="update_ready_title">Mogar %1$s is ready to install</string>
+    <string name="update_ready_body">Tap here, then tap Update.</string>
+    <string name="update_waiting_title">Mogar %1$s is ready to download</string>
+    <string name="update_waiting_body">It will download by itself on Wi-Fi. Tap here to download it now instead.</string>
+    <string name="auto_update_row">Update Mogar by itself</string>
+    <string name="auto_update_on">On</string>
+    <string name="auto_update_off">Off</string>
     <string name="map_loading">Loading the map</string>
     <string name="map_slow">This is taking a while. Check your connection.</string>
     <string name="map_failed">Can\'t reach the map. Check your connection.</string>

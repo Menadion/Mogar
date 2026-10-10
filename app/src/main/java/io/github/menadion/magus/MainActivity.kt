@@ -7,6 +7,7 @@ import android.Manifest
 import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.RectF
 import android.location.Location
@@ -147,6 +148,16 @@ private const val TAP_REACH_DP = 24f
 
 // First open asks for a name and a family, then the map shows everyone in it.
 class MainActivity : ComponentActivity() {
+    // The notification tapped while Mogar was already open. Without setIntent the old intent
+    // stays, and without the flag the screen has no way to hear about it.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(AutoUpdate.INSTALL_UPDATE, false)) {
+            AutoUpdate.installRequested = true
+        }
+    }
+
     // Back from Android's settings: the Keep running steps may have changed, and with them the gear's dot.
     override fun onResume() {
         super.onResume()
@@ -163,6 +174,12 @@ class MainActivity : ComponentActivity() {
         Diagnostics.noteAppOpened(this)
         ThemeSetting.load(this)
         Updates.load(this)
+        // The check that runs whether or not anyone opens Mogar again. KEEP inside, so this does
+        // not restart the day's clock every time the app is opened.
+        AutoUpdate.schedule(this)
+        if (intent?.getBooleanExtra(AutoUpdate.INSTALL_UPDATE, false) == true) {
+            AutoUpdate.installRequested = true
+        }
         setContent {
             MogarTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -253,6 +270,21 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
 
     // Once a day, asks GitHub whether a newer Mogar exists (the red dot on the gear).
     LaunchedEffect(Unit) { Updates.checkDaily(context) }
+
+    // Arriving from the "ready to install" notification: hand the file straight to Android's
+    // installer, which is the one tap nobody can take for them. Anything not in place yet (the
+    // download gone, or "Install unknown apps" never granted) falls back to Settings, where the
+    // update row already walks the whole thing through rather than failing silently.
+    LaunchedEffect(AutoUpdate.installRequested) {
+        if (!AutoUpdate.installRequested) return@LaunchedEffect
+        AutoUpdate.installRequested = false
+        val release = Updates.newer
+        if (release != null && Updates.isReady(context, release) && Updates.canInstall(context)) {
+            Updates.install(context, release)
+        } else {
+            showSettings = true
+        }
+    }
 
     // Recheck every 30 seconds, so a dot goes hollow even when no new update arrives.
     LaunchedEffect(Unit) {
