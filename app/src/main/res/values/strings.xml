@@ -184,7 +184,7 @@
     <string name="samsung_by_hand">This phone keeps the sleeping apps list somewhere Mogar cannot open directly. Tap the button, then search settings for \'Sleeping apps\', and make sure Mogar is not on that list.</string>
     <string name="button_went_nowhere">The button didn\'t take me there</string>
     <string name="pause_title">Don\'t pause Mogar when unused</string>
-    <string name="pause_detail">Tap the button, then turn off \'Pause app activity if unused\'. Some phones call it \'Remove permissions and free up space\'. Otherwise your phone stops Mogar after a few months without opening it.</string>
+    <string name="pause_detail">Tap the button, then turn off \'Pause app activity if unused\'. Some phones call it \'Remove permissions and free up space\', and some keep it inside \'Permissions\'. Otherwise your phone stops Mogar after a few months without opening it.</string>
     <string name="open_setting">Open setting</string>
     <string name="open_settings">Open settings</string>
     <string name="i_did_this">I did this</string>
