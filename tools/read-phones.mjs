@@ -2,8 +2,11 @@
 //
 //   node tools/read-phones.mjs
 //
-// Asks Firestore for ONLY the "name" and "diag" fields of every member document, through a
-// select mask, so no location ever leaves the server. Same admin key as tools/read-feedback.mjs.
+// Asks Firestore, through a select mask, for only four fields of every member document: "name",
+// "diag", "sharing" and "updatedAt". No lat or lng is ever named, so no location leaves the
+// server. The two beyond diag are what tell a working phone from a dead one: the app can report
+// perfect settings and still have stopped sending, which is what "sharing on, last seen 2 days
+// ago" looks like. Same admin key as tools/read-feedback.mjs.
 
 import { createSign } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
@@ -52,6 +55,21 @@ function plain(value) {
   return Object.values(value)[0];
 }
 
+// "4 minutes ago". The number on its own is unreadable, and the gap is the whole point: a phone
+// that is sharing but last spoke yesterday is being killed, and that only shows as elapsed time.
+function ago(iso) {
+  if (!iso) return "never";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(ms)) return String(iso);
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 const res = await fetch(
   `https://firestore.googleapis.com/v1/projects/${key.project_id}/databases/(default)/documents:runQuery`,
   {
@@ -60,7 +78,14 @@ const res = await fetch(
     body: JSON.stringify({
       structuredQuery: {
         from: [{ collectionId: "members", allDescendants: true }],
-        select: { fields: [{ fieldPath: "name" }, { fieldPath: "diag" }] },
+        select: {
+          fields: [
+            { fieldPath: "name" },
+            { fieldPath: "diag" },
+            { fieldPath: "sharing" },
+            { fieldPath: "updatedAt" },
+          ],
+        },
       },
     }),
   },
@@ -83,8 +108,17 @@ for (const row of rows) {
   console.log(`  phone      ${[d.brand, d.model].filter(Boolean).join(" ") || "?"}`);
   console.log(`  android    ${d.android ?? "?"}`);
   console.log(`  mogar      ${d.app ?? "?"}`);
+  console.log(`  sharing switch                ${m.sharing}`);
+  console.log(`  last location                 ${ago(m.updatedAt)}`);
   console.log(`  step 1 battery unrestricted   ${d.unrestricted}`);
   console.log(`  step 2 brand step ticked      ${d.brandStepDone}`);
-  console.log(`  sharer alive when last opened ${d.sharerRunningAtOpen}`);
+  // Whether this phone had ANY brand page to open. A tick with this false was made off the
+  // written card rather than a button, which is legitimate but is also what a blind tick
+  // looks like, so the two have to be told apart.
+  console.log(`  brand page existed            ${d.brandPageFound}`);
+  console.log(`  they said the button failed   ${d.brandPageFailed}`);
+  // Read at the last cold open and then re-sent with every location, so it goes stale: a phone
+  // sending right now can still report false here. "last location" above is the live signal.
+  console.log(`  sharer alive at last open     ${d.sharerRunningAtOpen}`);
   if (d.lastCrash) console.log(`  last crash ${d.lastCrash}`);
 }
