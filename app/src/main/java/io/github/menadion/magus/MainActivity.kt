@@ -126,6 +126,10 @@ import org.maplibre.geojson.Point
 // OpenFreeMap: free map tiles, no key. Swapping to an offline file later changes only this line.
 private const val MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 
+// How long the map may stay blank before the screen offers a reason. See the LaunchedEffect in
+// FamilyMap: this never ends the wait, it only explains one that is already happening.
+private const val MAP_SLOW_AFTER_MS = 10_000L
+
 // Roughly the middle of the Philippines, zoomed out to show the whole country.
 private val PHILIPPINES = LatLng(12.3, 122.5)
 
@@ -576,9 +580,20 @@ fun FamilyMap(
     }
     LaunchedEffect(map, members) { map?.let { project(it) } }
 
+    // What the map area shows until the map is really there. MapLibre answers both questions
+    // itself: did a frame finish with its tiles on it, and did loading actually fail. Nothing here
+    // is a fixed delay, so the indicator lasts as long as this phone needs and no longer.
+    val loadState = remember { mutableStateOf(MapLoadState.LOADING) }
+
     val mapView = remember {
         MapView(context).apply {
             onCreate(null)
+            // fully is the point: this fires on partial renders too, and hiding on the first of
+            // them would put the indicator away while the map was still half grey.
+            addOnDidFinishRenderingMapListener { fully ->
+                if (fully) loadState.value = MapLoadState.DONE
+            }
+            addOnDidFailLoadingMapListener { loadState.value = MapLoadState.FAILED }
             getMapAsync { m ->
                 m.cameraPosition = CameraPosition.Builder().target(PHILIPPINES).zoom(4.8).build()
                 // No further out than a world as tall as the screen; past that, blank shows below
@@ -708,7 +723,21 @@ fun FamilyMap(
         }
     }
 
-    AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+    // The third outcome, and the only place a clock belongs: the network is alive enough not to
+    // fail and too slow to draw, so neither listener above ever fires. Without this the ripple
+    // would spread forever with nothing said. Ten seconds, because mobile data on a budget phone
+    // can honestly take that long before anything is wrong.
+    LaunchedEffect(loadState.value) {
+        if (loadState.value == MapLoadState.LOADING) {
+            delay(MAP_SLOW_AFTER_MS)
+            if (loadState.value == MapLoadState.LOADING) loadState.value = MapLoadState.SLOW
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+        MapLoadingOverlay(loadState.value)
+    }
 }
 
 // Asks Google whether the phone's location is on. If it's off, shows the box that turns it on;
