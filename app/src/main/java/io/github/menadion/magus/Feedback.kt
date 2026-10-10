@@ -46,7 +46,6 @@ object Feedback {
             "familyCode" to Family.savedCode(context),
             "settingsWorked" to worked?.name?.lowercase(),
             "suggestion" to suggestion.trim().take(LIMIT),
-            "language" to LanguageSetting.mode,
             "diag" to Diagnostics.snapshot(context),
             "createdAt" to FieldValue.serverTimestamp(),
         )

@@ -37,11 +37,6 @@ private const val STOPPED_NOTIFICATION_ID = 3
 // Keeps sending my location in the background. Android only allows this with a permanent notification,
 // which doubles as the reminder that sharing is on.
 class ShareService : Service() {
-    // The notification's words follow the language switch too.
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(LanguageSetting.wrap(newBase))
-    }
-
     private lateinit var client: FusedLocationProviderClient
     private var listening = false
 
@@ -151,7 +146,7 @@ class ShareService : Service() {
         // "Sharing stopped. Open Mogar to turn it back on." Posted by the boot receiver when sharing was
         // on but couldn't be started from the background; opening the app starts it and clears this.
         fun showStoppedNotice(context: Context) {
-            val app = LanguageSetting.wrap(context)
+            val app = context
             val manager = app.getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(
                 NotificationChannel(STOPPED_CHANNEL_ID, app.getString(R.string.channel_stopped), NotificationManager.IMPORTANCE_DEFAULT)

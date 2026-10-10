@@ -143,11 +143,6 @@ private const val TAP_REACH_DP = 24f
 
 // First open asks for a name and a family, then the map shows everyone in it.
 class MainActivity : ComponentActivity() {
-    // The language switch: every string this screen reads comes through the wrapped context.
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(LanguageSetting.wrap(newBase))
-    }
-
     // Back from Android's settings: the Keep running steps may have changed, and with them the gear's dot.
     override fun onResume() {
         super.onResume()
@@ -195,9 +190,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     var zoomedIn by remember { mutableStateOf(false) }
     var fitRequest by remember { mutableIntStateOf(0) }
     var showKeepRunning by remember { mutableStateOf(false) }
-    var showSettings by rememberSaveable {
-        mutableStateOf((context as? Activity)?.intent?.getBooleanExtra(LanguageSetting.OPEN_SETTINGS, false) ?: false)
-    }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     var showFamilyPage by remember { mutableStateOf(false) }
     var showWhatsNew by remember { mutableStateOf(WhatsNew.dueNow(context)) }
     var showTutorial by remember { mutableStateOf(Tutorial.dueNow(context)) }

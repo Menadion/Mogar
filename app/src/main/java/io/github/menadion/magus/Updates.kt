@@ -185,8 +185,8 @@ object Updates {
             open(context, release)
             return
         }
-        // The notification's words follow the language switch, and the download mustn't hold the screen.
-        val app = LanguageSetting.wrap(context.applicationContext)
+        // The download mustn't hold the screen.
+        val app = context.applicationContext
         download = Download.DOWNLOADING
         percent = 0
         scope.launch {

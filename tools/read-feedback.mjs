@@ -84,7 +84,10 @@ for (const note of notes) {
   const phone = [d.brand, d.model].filter(Boolean).join(" ");
   const steps = d.unrestricted === false ? "battery restricted"
     : d.brandStepDone === false ? "brand step not done" : "steps done";
-  console.log(`\n${when}  ${note.name ?? "?"} (family ${note.familyCode ?? "?"}, language ${note.language ?? "?"})`);
+  // Dropped from the app on 2026-10-10 with the Filipino localisation; notes sent before
+  // that still carry it, so it prints only when the note has one.
+  const lang = note.language ? `, language ${note.language}` : "";
+  console.log(`\n${when}  ${note.name ?? "?"} (family ${note.familyCode ?? "?"}${lang})`);
   console.log(`  ${phone} · Android ${d.android ?? "?"} · Mogar ${d.app ?? "?"} · ${steps}`);
   if (note.settingsWorked) console.log(`  Buttons took them to the right page: ${note.settingsWorked}`);
   if (note.landedOn) console.log(`  Ended up at: ${note.landedOn}`);
