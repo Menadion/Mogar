@@ -38,7 +38,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8, on since 2026-10-10. Before this the release carried every class and resource of
+            // Compose, Firebase and MapLibre, used or not: 12.5 MB of the 35.5 MB was code Mogar
+            // never calls. Rules in proguard-rules.pro, which is short on purpose; the libraries
+            // ship their own and R8 applies those itself.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Both ARM builds. 64-bit covers most phones, but a budget Samsung (the Galaxy A13)
             // runs a 32-bit Android on 64-bit silicon and refuses a 64-bit-only package outright.
             // The emulator uses debug, which carries every ABI.
