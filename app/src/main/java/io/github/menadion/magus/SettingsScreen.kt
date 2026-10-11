@@ -212,6 +212,7 @@ fun UpdateRow() {
     }
     val subtitle = when {
         Updates.state == Updates.State.CHECKING -> stringResource(R.string.update_checking)
+        newer != null && newer.version == Updates.broken -> stringResource(R.string.update_broken, newer.version)
         newer != null && Updates.download == Updates.Download.FAILED -> stringResource(R.string.update_download_failed)
         newer != null -> stringResource(R.string.update_out, newer.version) + if (newer.notes.isNotBlank()) ": ${newer.notes}" else ""
         Updates.state == Updates.State.CHECKED -> stringResource(R.string.update_latest, Diagnostics.appVersion(context))
@@ -231,7 +232,7 @@ fun UpdateRow() {
             },
             onClick = { scope.launch { Updates.check(context) } },
         )
-        if (newer != null) {
+        if (newer != null && newer.version != Updates.broken) {
             val downloading = Updates.download == Updates.Download.DOWNLOADING
             val ready = Updates.isReady(context, newer)
             // Stays enabled while downloading so the percentage reads in full colour; a tap then does nothing.

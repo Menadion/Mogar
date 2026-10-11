@@ -144,6 +144,10 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             Updates.newer
         } ?: return Result.success()
 
+        // A release that already proved it holds the wrong build: no notification, no download.
+        // Reported on the Settings row instead, where there is room to say it.
+        if (release.version == Updates.broken) return Result.success()
+
         if (Updates.isReady(context, release)) {
             AutoUpdate.notifyReady(context, release)
             return Result.success()

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -59,10 +60,17 @@ object Updates {
     var latest by mutableStateOf<Release?>(null)
         private set
 
+    // A version whose download turned out to hold different bytes than its tag claimed. Kept in
+    // prefs, because forgetting it means fetching the same 25 MB lie again tomorrow, and daily after.
+    var broken by mutableStateOf<String?>(null)
+        private set
+
     private var installed = "0"
 
     // FAILED: the last download broke off; the button offers it again.
-    enum class Download { IDLE, DOWNLOADING, FAILED }
+    // BROKEN: the file arrived whole but is not the version the release promised, so it was thrown
+    // away and nothing is offered.
+    enum class Download { IDLE, DOWNLOADING, FAILED, BROKEN }
 
     var download by mutableStateOf(Download.IDLE)
         private set
@@ -85,6 +93,7 @@ object Updates {
         installed = Diagnostics.appVersion(context)
         cleanUp(context)
         val p = prefs(context)
+        broken = p.getString("updateBroken", null)
         val version = p.getString("updateLatest", null) ?: return
         val url = p.getString("updateUrl", null) ?: return
         latest = Release(version, p.getString("updateNotes", "") ?: "", url)
@@ -179,6 +188,29 @@ object Updates {
     fun isReady(context: Context, release: Release) =
         download != Download.DOWNLOADING && apkFile(context, release.version).exists()
 
+    // What the downloaded file really is, read out of the file itself. The tag is a promise and the
+    // APK is the fact: v0.9 was published holding a 0.8 build (2026-10-10), so every phone installed
+    // it, still read 0.8, and was offered the same update again the next day.
+    private fun versionInside(context: Context, file: File): String? =
+        context.packageManager.getPackageArchiveInfo(file.path, 0)?.versionName
+
+    // Throws a download away unless it really is newer than what is installed, and remembers the
+    // version that lied so the daily check stops fetching it. Called once, when the file lands,
+    // never from isReady: reading a 25 MB archive on every redraw would stutter the screen.
+    private suspend fun trustworthy(context: Context, release: Release): Boolean {
+        val file = apkFile(context, release.version)
+        val inside = versionInside(context, file)
+        // Two things have to hold: the file is the version its release promised, and that version is
+        // really ahead of this phone. Checking only the second lets a release tagged 0.11 that holds
+        // a 0.10 build through, which installs 0.10 and is then offered 0.11 again the next day.
+        if (inside == release.version && isNewer(inside, Diagnostics.appVersion(context))) return true
+        Log.w("Mogar", "release ${release.version} holds ${inside ?: "an unreadable APK"}")
+        file.delete()
+        prefs(context).edit().putString("updateBroken", release.version).apply()
+        withContext(Dispatchers.Main) { broken = release.version }
+        return false
+    }
+
     fun startDownload(context: Context, release: Release) {
         if (download == Download.DOWNLOADING) return
         if (!release.url.endsWith(".apk")) {
@@ -192,8 +224,13 @@ object Updates {
         scope.launch {
             val result = runCatching { fetchApk(app, release) }
             app.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
+            val trusted = result.isSuccess && trustworthy(app, release)
             withContext(Dispatchers.Main) {
-                download = if (result.isSuccess) Download.IDLE else Download.FAILED
+                download = when {
+                    result.isFailure -> Download.FAILED
+                    !trusted -> Download.BROKEN
+                    else -> Download.IDLE
+                }
             }
         }
     }
@@ -210,10 +247,15 @@ object Updates {
         }
         val result = runCatching { fetchApk(app, release) }
         app.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
+        val trusted = result.isSuccess && trustworthy(app, release)
         withContext(Dispatchers.Main) {
-            download = if (result.isSuccess) Download.IDLE else Download.FAILED
+            download = when {
+                result.isFailure -> Download.FAILED
+                !trusted -> Download.BROKEN
+                else -> Download.IDLE
+            }
         }
-        return result.isSuccess
+        return trusted
     }
 
     // Writes to a .part file and renames it when complete, so a broken-off download never looks ready.

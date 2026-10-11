@@ -88,6 +88,7 @@
     <string name="update_downloading">Downloading… %1$d%%</string>
     <string name="update_install">Install Mogar %1$s</string>
     <string name="update_download_failed">Download failed. Try again.</string>
+    <string name="update_broken">Mogar %1$s was broken, so it wasn\'t installed. Wait for the next one.</string>
     <string name="install_permission_title">One-time permission</string>
     <string name="install_permission_text">Android will ask once to let Mogar install its updates. Turn on \'Allow\', then press back.</string>
     <string name="ok">OK</string>
