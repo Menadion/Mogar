@@ -94,7 +94,7 @@
     <string name="ok">OK</string>
 
     <!-- What's new: this version's notes only, rewritten each release. See WhatsNew.kt -->
-    <string name="whats_new_version" translatable="false">0.9</string>
+    <string name="whats_new_version" translatable="false">0.10</string>
     <string name="whats_new">What\'s new</string>
     <string name="whats_new_subtitle">What changed in Mogar %1$s</string>
     <string name="whats_new_title">What\'s new in Mogar %1$s</string>

@@ -14,8 +14,8 @@ android {
         applicationId = "io.github.menadion.magus"
         minSdk = 26
         targetSdk = 37
-        versionCode = 9
-        versionName = "0.9"
+        versionCode = 10
+        versionName = "0.10"
     }
 
     // Release signing: keystore.properties (git-ignored) points at the key outside the repo.
