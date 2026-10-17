@@ -118,6 +118,19 @@ object Updates {
                 editor.putString("updateLatest", found.version)
                     .putString("updateNotes", found.notes)
                     .putString("updateUrl", found.url)
+            } else {
+                // GitHub says there is no release at all. That is an answer, not a missing one, so
+                // forget whatever was last offered: only the found branch used to write, and an
+                // offer for a release that has since been deleted would otherwise stand for ever.
+                // Not hypothetical — v0.9 was deleted on 2026-10-11, and had it been the only
+                // release every phone would still be offering it.
+                //
+                // Its download goes too. cleanUp keeps anything newer than what is installed, so a
+                // file for a release that no longer exists is newer than everything for ever and
+                // would sit in the cache at 25 MB with nothing left to install it.
+                latest?.let { apkFile(context, it.version).delete() }
+                latest = null
+                editor.remove("updateLatest").remove("updateNotes").remove("updateUrl")
             }
             editor.apply()
             state = State.CHECKED
