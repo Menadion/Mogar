@@ -27,6 +27,10 @@
     <string name="sharing_state_off">Sharing off</string>
     <string name="sharing_notice_on">Your location is being shared with your family</string>
     <string name="sharing_notice_off">Your family won\'t be able to see you</string>
+    <!-- Sharing switched itself off, or would not go on, because the phone cannot report a position -->
+    <string name="sharing_notice_phone_off">Your phone\'s location is off, so sharing is off too</string>
+    <!-- The phone can report again, and sharing was only off because it couldn't -->
+    <string name="sharing_notice_resumed">Your phone\'s location is back on, so sharing is on again</string>
     <string name="show_everyone">Show everyone</string>
     <string name="background_title">Keep sharing when Mogar is closed</string>
     <string name="background_text">On the next screen, choose \'Allow all the time\'. Then your family can still see you after your phone restarts.</string>

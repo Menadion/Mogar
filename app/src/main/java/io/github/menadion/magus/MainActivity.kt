@@ -200,8 +200,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun FamilyScreen(code: String, onLeft: () -> Unit) {
     val context = LocalContext.current
-    var sharing by remember { mutableStateOf(Family.isSharing(context)) }
+    // Read straight from Family, not remembered here, so the pill follows a change made anywhere:
+    // a declined location box, or the phone's own location switch flipping while Mogar is open.
+    val sharing = Family.isSharing(context)
+    // True between tapping the pill on and the phone answering: it decides whether that answer
+    // commits sharing on, or only records that they wanted it (see onLocationSettled).
+    var pillWantsOn by remember { mutableStateOf(false) }
     var explainBackground by remember { mutableStateOf(false) }
+    // Bumped to ask the map's permission-then-location-switch flow to run again (see FamilyMap).
+    var locationAsk by remember { mutableIntStateOf(0) }
 
     var members by remember { mutableStateOf(emptyList<Member>()) }
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -260,10 +267,12 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
         }
     }
 
-    // The toggle notice fades after a moment.
+    // The toggle notice fades after a moment. 3 seconds, not the 1.5 it was: the notice now also
+    // carries why sharing switched itself off, which is a sentence rather than a confirmation, and
+    // it is the only place that says so.
     LaunchedEffect(notice) {
         if (notice != null) {
-            delay(1500)
+            delay(3000)
             notice = null
         }
     }
@@ -317,6 +326,10 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     }
 
     // Everyone on the screens: you first, then the family in a fixed order.
+    // The fallback is what my own screens show before any location of mine has been sent: the
+    // family listener drops a member with no position, so me is null then. It reads the picture
+    // from this phone's own copy, which is what my dot on the map already did — without it, the
+    // profile page lost my picture whenever my location was off (M's question, 2026-10-11).
     val meNow = (me ?: Member(
         uid = myUid ?: "me",
         name = Family.savedName(context) ?: context.getString(R.string.you),
@@ -325,6 +338,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
         battery = null,
         updatedAtMillis = null,
         sharing = sharing,
+        photo = Family.savedPhoto(context),
         phone = Family.savedPhone(context),
     )).copy(sharing = sharing)
     val personColors = PersonColors.assign(members.map { it.uid } + listOfNotNull(myUid))
@@ -347,7 +361,36 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             paddingTop = topHeight,
             paddingBottom = { bottomHeight },
             fitRequest = fitRequest,
-            onLocationReady = { startSharingSteps() },
+            locationAsk = locationAsk,
+            // What the phone answered about reporting a position, either when Mogar opened or
+            // because the pill was tapped on. This is the one place the two switches are tied
+            // together: the pill is never on while the phone would refuse.
+            onLocationSettled = { allowed ->
+                val asked = pillWantsOn
+                pillWantsOn = false
+                when {
+                    // They asked for it. The phone agreed, so honour it.
+                    allowed && asked -> {
+                        Family.setSharing(context, true)
+                        startSharingSteps()
+                        notice = context.getString(R.string.sharing_notice_on)
+                    }
+                    // Nobody asked; the phone can report again and Mogar was what switched
+                    // sharing off, so put back what they last chose and say it is back.
+                    allowed -> {
+                        if (Family.resumeAfterPhone(context)) {
+                            notice = context.getString(R.string.sharing_notice_resumed)
+                        }
+                        startSharingSteps()
+                    }
+                    // Refused. Sharing goes off, or stays off with their wish recorded, and the
+                    // notice is the only thing that says the phone is the reason.
+                    else -> {
+                        Family.pauseForPhone(context, wantedOn = asked)
+                        notice = context.getString(R.string.sharing_notice_phone_off)
+                    }
+                }
+            },
             // A tap on empty map (uid null) closes whatever the panel shows.
             onDotTapped = { uid ->
                 showList = false
@@ -440,11 +483,18 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                     familyName = familyName,
                     memberCount = members.size + 1,
                     sharing = sharing,
+                    // Off is theirs to give and takes effect at once. On is a request: the pill
+                    // cannot be on unless the phone will report a position, so it asks first and
+                    // the answer decides (see onLocationSettled). Nothing is committed here.
                     onToggle = {
-                        sharing = !sharing
-                        Family.setSharing(context, sharing)
-                        if (sharing) startSharingSteps() else ShareService.stop(context)
-                        notice = context.getString(if (sharing) R.string.sharing_notice_on else R.string.sharing_notice_off)
+                        if (sharing) {
+                            Family.setSharing(context, false)
+                            ShareService.stop(context)
+                            notice = context.getString(R.string.sharing_notice_off)
+                        } else {
+                            pillWantsOn = true
+                            locationAsk++
+                        }
                     },
                     needsAttention = Updates.newer != null || !KeepRunning.allDone,
                     onSettings = { showSettings = true },
@@ -562,7 +612,8 @@ fun FamilyMap(
     paddingTop: Int,
     paddingBottom: () -> Int, // read when the camera moves, so a panel that just opened counts
     fitRequest: Int, // goes up by one each time Show everyone is tapped
-    onLocationReady: () -> Unit,
+    locationAsk: Int, // goes up by one each time the sharing pill asks the phone again
+    onLocationSettled: (allowed: Boolean) -> Unit, // true when this phone will report a position
     onDotTapped: (String?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -579,26 +630,41 @@ fun FamilyMap(
     var style by remember { mutableStateOf<Style?>(null) }
     var myLocation by remember { mutableStateOf<Location?>(null) }
 
-    // Google's "Turn on device location?" box. Whatever they tap, carry on to the sharing steps.
+    // Google's "Turn on device location?" box. Its answer used to be thrown away, which is how the
+    // pill could stay on over a phone that had just refused: RESULT_OK means they turned location
+    // on, anything else means they said no and nothing will be sent.
     val askTurnOn = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
-    ) { onLocationReady() }
+    ) { result -> onLocationSettled(result.resultCode == Activity.RESULT_OK) }
 
     val askLocation = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { granted ->
         hasLocation = granted.values.any { it }
-        if (hasLocation) checkLocationIsOn(context, { askTurnOn.launch(it) }, onLocationReady)
+        // Refusing the permission is the same answer as refusing the box: this phone will not
+        // report a position, so sharing cannot claim to be on.
+        if (hasLocation) checkLocationIsOn(context, { askTurnOn.launch(it) }, onLocationSettled)
+        else onLocationSettled(false)
     }
 
-    // Runs once each time the app opens: permission first, then the phone's location switch, then sharing.
-    LaunchedEffect(Unit) {
+    // The phone's location switch, flipped while they are looking at the map — from the quick
+    // settings shade, or by another app. Same answer, same decision code as the other two ways in.
+    val settled by rememberUpdatedState(onLocationSettled)
+    DisposableEffect(Unit) {
+        val receiver = PhoneLocation.watchSwitch(context) { canReport -> settled(canReport) }
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+
+    // Permission first, then the phone's location switch, then sharing. Runs when the app opens,
+    // and again each time the sharing pill is tapped on, which is what keeps the pill and the
+    // phone's own switch from disagreeing.
+    LaunchedEffect(locationAsk) {
         if (!hasLocation) {
             askLocation.launch(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
             )
         } else {
-            checkLocationIsOn(context, { askTurnOn.launch(it) }, onLocationReady)
+            checkLocationIsOn(context, { askTurnOn.launch(it) }, onLocationSettled)
         }
     }
 
@@ -772,23 +838,25 @@ fun FamilyMap(
     }
 }
 
-// Asks Google whether the phone's location is on. If it's off, shows the box that turns it on;
-// either way, calls whenDone once that's settled.
+// Asks Google whether the phone's location is on. If it's off, shows the box that turns it on and
+// leaves the answer to that box; otherwise it answers here.
 private fun checkLocationIsOn(
     context: Context,
     showTurnOnBox: (IntentSenderRequest) -> Unit,
-    whenDone: () -> Unit,
+    whenSettled: (allowed: Boolean) -> Unit,
 ) {
     val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10_000L).build()
     val settings = LocationSettingsRequest.Builder().addLocationRequest(request).setAlwaysShow(true).build()
     LocationServices.getSettingsClient(context)
         .checkLocationSettings(settings)
-        .addOnSuccessListener { whenDone() }
+        .addOnSuccessListener { whenSettled(true) }
         .addOnFailureListener { e ->
             if (e is ResolvableApiException) {
                 showTurnOnBox(IntentSenderRequest.Builder(e.resolution).build())
             } else {
-                whenDone()
+                // Not something a box can fix (no Play services, for one). Ask the phone itself
+                // rather than assuming either way, so sharing is judged on what it can really do.
+                whenSettled(PhoneLocation.canReport(context))
             }
         }
 }

@@ -8,6 +8,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -39,6 +40,7 @@ private const val STOPPED_NOTIFICATION_ID = 3
 class ShareService : Service() {
     private lateinit var client: FusedLocationProviderClient
     private var listening = false
+    private var locationSwitch: BroadcastReceiver? = null
 
     private val onLocation = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -53,6 +55,13 @@ class ShareService : Service() {
         isRunning = true
         clearStoppedNotice(this)
         client = LocationServices.getFusedLocationProviderClient(this)
+        // While this service is alive, sharing is on. If the phone's location is switched off
+        // under it, no location ever arrives again and nothing above would notice: the requests
+        // simply stop being answered. Switch sharing off instead, which also stops this service
+        // and takes its "sharing your location" notification away with it.
+        locationSwitch = PhoneLocation.watchSwitch(this) { canReport ->
+            if (!canReport) Family.pauseForPhone(this)
+        }
     }
 
     @SuppressLint("MissingPermission") // start() only runs this after checking the permission
@@ -86,6 +95,8 @@ class ShareService : Service() {
     override fun onDestroy() {
         isRunning = false
         client.removeLocationUpdates(onLocation)
+        locationSwitch?.let { runCatching { unregisterReceiver(it) } }
+        locationSwitch = null
         super.onDestroy()
     }
 

@@ -67,6 +67,12 @@
             </intent-filter>
         </receiver>
 
+        <!--
+          The phone's own location switch has no receiver here on purpose: PROVIDERS_CHANGED and
+          MODE_CHANGED are implicit broadcasts, which since Android 8 never reach a receiver
+          declared in a manifest. PhoneLocation.watchSwitch registers one in code instead.
+        -->
+
         <!-- Lets the installer read a downloaded update out of Mogar's own storage -->
         <provider
             android:name="androidx.core.content.FileProvider"

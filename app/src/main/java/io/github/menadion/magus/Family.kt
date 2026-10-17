@@ -12,6 +12,9 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -48,7 +51,34 @@ object Family {
     fun savedCode(context: Context): String? = prefs(context).getString("familyCode", null)
     fun savedFamilyName(context: Context): String? = prefs(context).getString("familyName", null)
     fun savedPhone(context: Context): String? = prefs(context).getString("phone", null)
-    fun isSharing(context: Context): Boolean = prefs(context).getBoolean("sharing", true)
+    // The sharing switch lives here and nowhere else, so every screen and the phone's own location
+    // switch agree on it. Read from a composable, it makes that screen follow a change made
+    // anywhere: the pill, a declined location box, or the phone's switch flipping while Mogar is
+    // open. The map screen used to remember its own copy, which nothing outside it could reach.
+    private var sharingState by mutableStateOf(true)
+    private var sharingLoaded = false
+
+    fun isSharing(context: Context): Boolean {
+        if (!sharingLoaded) {
+            sharingState = prefs(context).getBoolean("sharing", true)
+            sharingLoaded = true
+        }
+        return sharingState
+    }
+
+    // True when Mogar switched sharing off itself, because the phone could not report a position:
+    // location turned off, or the permission refused. Only pauseForPhone sets it, and any tap on
+    // the pill clears it, so sharing they turned off themselves is never turned back on for them.
+    fun offByPhone(context: Context): Boolean = prefs(context).getBoolean("sharingOffByPhone", false)
+
+    private fun writeSharing(context: Context, on: Boolean, offByPhone: Boolean) {
+        prefs(context).edit()
+            .putBoolean("sharing", on)
+            .putBoolean("sharingOffByPhone", offByPhone)
+            .apply()
+        sharingState = on
+        sharingLoaded = true
+    }
 
     private fun save(context: Context, name: String, code: String, familyName: String?, phone: String?) {
         prefs(context).edit()
@@ -57,7 +87,10 @@ object Family {
             .putString("familyCode", code)
             .putString("familyName", familyName)
             .putBoolean("sharing", true)
+            .putBoolean("sharingOffByPhone", false)
             .apply()
+        sharingState = true
+        sharingLoaded = true
     }
 
     // "Santos Family", or "your Family" for a family made before names existed.
@@ -66,14 +99,44 @@ object Family {
         else context.getString(R.string.family_label_named, name)
 
     // Turns my sharing on or off, on this phone and for everyone else's map (green or grey dot).
+    // Tapping the pill is a real choice either way, so it clears the "Mogar switched this off"
+    // flag: an off they chose themselves is never undone when the phone's location comes back.
     fun setSharing(context: Context, on: Boolean) {
-        prefs(context).edit().putBoolean("sharing", on).apply()
+        writeSharing(context, on, offByPhone = false)
+        pushSharing(context, on)
+    }
+
+    // Switches sharing off because this phone cannot report a position, and remembers that it was
+    // Mogar's doing. Stopping the sharer takes its permanent "sharing your location" notification
+    // with it, so nothing is left claiming to send a location that is not being sent.
+    //
+    // wantedOn: they have just tapped the pill on and the phone refused. Sharing is already off, so
+    // there is nothing to switch, but the flag is still set: their wish stands, and the phone's
+    // location coming back later honours it instead of making them tap again.
+    fun pauseForPhone(context: Context, wantedOn: Boolean = false) {
+        if (!isSharing(context) && !wantedOn) return
+        writeSharing(context, on = false, offByPhone = true)
+        pushSharing(context, false)
+        ShareService.stop(context)
+    }
+
+    // Puts sharing back on once the phone can report a position again, but only where Mogar was the
+    // one that switched it off. Their last real choice was on, so this restores it rather than
+    // deciding for them. Returns whether it did anything, so the screen can say so.
+    fun resumeAfterPhone(context: Context): Boolean {
+        if (!offByPhone(context)) return false
+        writeSharing(context, on = true, offByPhone = false)
+        pushSharing(context, true)
+        return true
+    }
+
+    private fun pushSharing(context: Context, on: Boolean) {
         val code = savedCode(context) ?: return
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         db.collection("families").document(code).collection("members").document(uid)
             .set(mapOf("sharing" to on), SetOptions.merge())
-            .addOnSuccessListener { Log.d("Mogar", "setSharing($on) saved") }
-            .addOnFailureListener { Log.w("Mogar", "setSharing($on) failed", it) }
+            .addOnSuccessListener { Log.d("Mogar", "sharing=$on saved") }
+            .addOnFailureListener { Log.w("Mogar", "sharing=$on failed", it) }
     }
 
     // Signs in anonymously if this phone hasn't yet, and returns this phone's ID.
@@ -202,7 +265,10 @@ object Family {
             .remove("familyCode")
             .remove("familyName")
             .putBoolean("sharing", true)
+            .putBoolean("sharingOffByPhone", false)
             .apply()
+        sharingState = true
+        sharingLoaded = true
     }
 
     // Overwrites my latest location. Nothing older is kept.
