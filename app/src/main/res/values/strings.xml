@@ -102,11 +102,13 @@
     <string name="whats_new">What\'s new</string>
     <string name="whats_new_subtitle">What changed in Mogar %1$s</string>
     <string name="whats_new_title">What\'s new in Mogar %1$s</string>
+    <string name="whats_new_popup_row">Show what\'s new after an update</string>
+    <string name="whats_new_popup_on">On</string>
+    <string name="whats_new_popup_off">Off</string>
     <string-array name="whats_new_items">
-        <item>Mogar now looks for updates by itself and tells you when one is ready. It downloads them on Wi-Fi so it doesn\'t use your load. You can turn this off in \'Settings\'.</item>
-        <item>The map now shows that it is loading, and says so when it cannot reach the internet.</item>
-        <item>Mogar is a smaller download than before.</item>
-        <item>In \'Keep Mogar running\', the last step now gives the other names your phone may use for that setting.</item>
+        <item>Sharing can no longer say it is on while your phone\'s location is off. If you turn location off, Mogar turns sharing off too and tells you why. Turn location back on and sharing comes back, unless you were the one who turned it off.</item>
+        <item>Your profile picture now shows on your own page even before you have shared a location.</item>
+        <item>This box no longer appears by itself. You can still read what changed any time in \'Settings\', under \'What\'s new\', and turn the box back on there.</item>
     </string-array>
 
     <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->

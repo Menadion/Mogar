@@ -69,6 +69,7 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
     // Held here, not read from prefs each draw, or the segmented buttons wouldn't move on a tap.
     var consentAllowed by remember { mutableStateOf(Consent.allowed(context)) }
     var autoUpdate by remember { mutableStateOf(AutoUpdate.enabled(context)) }
+    var whatsNewPopup by remember { mutableStateOf(WhatsNew.popupEnabled(context)) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = colors.surface) {
         Box(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -125,6 +126,20 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                             )
                             Divider()
                         }
+                        // Whether the notes also pop up by themselves after an update. Off by
+                        // default (see WhatsNew.popupEnabled), so this row is how it comes back.
+                        // Outside the hasNotes block above: a release with no notes would otherwise
+                        // hide the setting, and the state would be unreadable until the next one.
+                        ChoiceRow(
+                            label = stringResource(R.string.whats_new_popup_row),
+                            choices = listOf(
+                                "on" to stringResource(R.string.whats_new_popup_on),
+                                "off" to stringResource(R.string.whats_new_popup_off),
+                            ),
+                            selected = if (whatsNewPopup) "on" else "off",
+                            onPick = { whatsNewPopup = it == "on"; WhatsNew.setPopup(context, whatsNewPopup) },
+                        )
+                        Divider()
                         NavRow(
                             title = stringResource(R.string.tutorial),
                             subtitle = stringResource(R.string.tutorial_subtitle),

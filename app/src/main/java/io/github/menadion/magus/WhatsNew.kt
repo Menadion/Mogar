@@ -27,8 +27,20 @@ object WhatsNew {
     // True when the notes in this build are for the version installed.
     fun hasNotes(context: Context) = context.getString(R.string.whats_new_version) == Diagnostics.appVersion(context)
 
+    // Off unless they ask for it (M's call, 2026-10-21). The opposite of autoUpdate's default, and
+    // for the same reason read the other way: the people this is for do not read the notes, so the
+    // box is one more window to dismiss every release, on three phones he would have to visit. The
+    // notes are never lost — Settings > What's new opens them any time — only the popup is.
+    fun popupEnabled(context: Context) = prefs(context).getBoolean("whatsNewPopup", false)
+
+    fun setPopup(context: Context, on: Boolean) =
+        prefs(context).edit().putBoolean("whatsNewPopup", on).apply()
+
     // Once per version, and only after an update: a fresh install starts at setup, not here.
     fun dueNow(context: Context): Boolean {
+        // Deliberately before the seen check and writing nothing: turning the popup on later still
+        // shows this version's notes once, rather than silently swallowing them while it was off.
+        if (!popupEnabled(context)) return false
         if (prefs(context).getString("whatsNewSeen", null) == Diagnostics.appVersion(context)) return false
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         if (info.firstInstallTime == info.lastUpdateTime) {
