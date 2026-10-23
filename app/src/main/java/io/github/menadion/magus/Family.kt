@@ -23,14 +23,15 @@ import kotlin.coroutines.resumeWithException
 data class Member(
     val uid: String,
     val name: String,
-    val lat: Double,
-    val lng: Double,
+    val lat: Double?, // null until the first position arrives; never faked
+    val lng: Double?,
     val battery: Int?,
     val updatedAtMillis: Long?,
     val sharing: Boolean,
     val diag: Map<String, Any?>? = null, // see Diagnostics
     val photo: ByteArray? = null, // small JPEG, see Photos
     val phone: String? = null, // +639XXXXXXXXX, optional, see Phone
+    val joinedAtMillis: Long? = null, // when the record was made; old records have none
 )
 
 // Everything the app knows about "my family": what's saved on this phone, and what's in Firebase.
@@ -179,7 +180,7 @@ object Family {
     // A new member's record: the number only when one was typed, and the picture this phone kept
     // from before, so leaving and rejoining doesn't lose it (M's call, 2026-09-26).
     private fun memberFields(context: Context, name: String, phone: String?): Map<String, Any> =
-        mutableMapOf<String, Any>("name" to name, "sharing" to true).apply {
+        mutableMapOf<String, Any>("name" to name, "sharing" to true, "joinedAt" to FieldValue.serverTimestamp()).apply {
             if (phone != null) put("phone", phone)
             savedPhoto(context)?.let { put("photo", Blob.fromBytes(it)) }
         }
@@ -303,7 +304,8 @@ object Family {
             .addOnFailureListener { Log.w("Mogar", "could not clear diagnostics", it) }
     }
 
-    // Calls onChange with everyone in my family who has sent a location, every time anyone's changes.
+    // Calls onChange with everyone in my family, every time anyone's changes. Someone who has joined but
+    // not yet sent a location comes through with lat and lng null.
     fun listen(context: Context, onChange: (List<Member>) -> Unit): ListenerRegistration? {
         val code = savedCode(context) ?: return null
         return db.collection("families").document(code).collection("members")
@@ -313,20 +315,19 @@ object Family {
                 Log.d("Mogar", "family update: " + snapshot.documents.joinToString {
                     "${it.getString("name")}=${it.getBoolean("sharing")}@${it.getTimestamp("updatedAt")?.toDate()}"
                 })
-                val members = snapshot.documents.mapNotNull { doc ->
-                    val lat = doc.getDouble("lat") ?: return@mapNotNull null
-                    val lng = doc.getDouble("lng") ?: return@mapNotNull null
+                val members = snapshot.documents.map { doc ->
                     Member(
                         uid = doc.id,
                         name = doc.getString("name") ?: "?",
-                        lat = lat,
-                        lng = lng,
+                        lat = doc.getDouble("lat"),
+                        lng = doc.getDouble("lng"),
                         battery = doc.getLong("battery")?.toInt(),
                         updatedAtMillis = doc.getTimestamp("updatedAt")?.toDate()?.time,
                         sharing = doc.getBoolean("sharing") ?: true,
                         diag = (doc.get("diag") as? Map<*, *>)?.mapKeys { it.key.toString() },
                         photo = doc.getBlob("photo")?.toBytes(),
                         phone = doc.getString("phone"),
+                        joinedAtMillis = doc.getTimestamp("joinedAt")?.toDate()?.time,
                     )
                 }
                 onChange(members)

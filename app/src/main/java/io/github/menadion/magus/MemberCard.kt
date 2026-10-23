@@ -49,13 +49,21 @@ const val QUIET_AFTER_MS = 15 * 60_000L
 // Below this, the battery shows in red.
 const val LOW_BATTERY = 20
 
-// Sharing is on, but nothing has arrived for a while: dead phone, no signal, or the phone killed Mogar.
-fun Member.isQuiet(now: Long): Boolean =
-    sharing && updatedAtMillis != null && now - updatedAtMillis > QUIET_AFTER_MS
+// Joined, sharing on, no position yet, and still inside the first 15 minutes. After that it reads
+// quiet, and a record with no joinedAt never waits.
+fun Member.isWaiting(now: Long): Boolean =
+    sharing && lat == null && joinedAtMillis != null && now - joinedAtMillis <= QUIET_AFTER_MS
 
-// What the dot looks like: green sharing, hollow gone quiet, grey paused.
+// Sharing is on, but nothing has arrived for a while: dead phone, no signal, or the phone killed Mogar.
+// A member who never sent a position counts too, once the waiting window is over.
+fun Member.isQuiet(now: Long): Boolean =
+    sharing && !isWaiting(now) && (if (updatedAtMillis != null) now - updatedAtMillis > QUIET_AFTER_MS else lat == null)
+
+// What the dot looks like: green sharing, hollow gone quiet, grey paused. "waiting" has no dot on the
+// map (no position), only a row.
 fun Member.dotState(now: Long): String = when {
     !sharing -> "paused"
+    isWaiting(now) -> "waiting"
     isQuiet(now) -> "quiet"
     else -> "active"
 }

@@ -327,14 +327,14 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
 
     // Everyone on the screens: you first, then the family in a fixed order.
     // The fallback is what my own screens show before any location of mine has been sent: the
-    // family listener drops a member with no position, so me is null then. It reads the picture
+    // family record of mine may not exist yet, so me is null then. It reads the picture
     // from this phone's own copy, which is what my dot on the map already did — without it, the
     // profile page lost my picture whenever my location was off (M's question, 2026-10-11).
     val meNow = (me ?: Member(
         uid = myUid ?: "me",
         name = Family.savedName(context) ?: context.getString(R.string.you),
-        lat = 0.0,
-        lng = 0.0,
+        lat = null,
+        lng = null,
         battery = null,
         updatedAtMillis = null,
         sharing = sharing,
@@ -672,9 +672,11 @@ fun FamilyMap(
     val latestMembers by rememberUpdatedState(members)
     val latestOnProjected by rememberUpdatedState(onProjected)
     fun project(m: MapLibreMap) {
-        latestOnProjected(latestMembers.associate { member ->
-            m.projection.toScreenLocation(LatLng(member.lat, member.lng)).let { member.uid to Offset(it.x, it.y) }
-        })
+        latestOnProjected(latestMembers.mapNotNull { member ->
+            val lat = member.lat ?: return@mapNotNull null
+            val lng = member.lng ?: return@mapNotNull null
+            m.projection.toScreenLocation(LatLng(lat, lng)).let { member.uid to Offset(it.x, it.y) }
+        }.toMap())
     }
     LaunchedEffect(map, members) { map?.let { project(it) } }
 
@@ -769,13 +771,13 @@ fun FamilyMap(
     val density = context.resources.displayMetrics.density
     val side = (12 * density).toInt()
     val tagRoom = (60 * density).toInt() // the name tag sits above the dot
-    fun mine() = myLocation?.let { LatLng(it.latitude, it.longitude) } ?: me?.let { LatLng(it.lat, it.lng) }
+    fun mine() = myLocation?.let { LatLng(it.latitude, it.longitude) } ?: me?.let { mm -> mm.lat?.let { LatLng(it, mm.lng ?: return@let null) } }
     LaunchedEffect(map, selectedUid) {
         val m = map ?: return@LaunchedEffect
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
         val mine = mine()
         if (selectedUid != null) {
-            val target = if (selectedUid == myUid) mine else members.find { it.uid == selectedUid }?.let { LatLng(it.lat, it.lng) }
+            val target = if (selectedUid == myUid) mine else members.find { it.uid == selectedUid }?.let { mm -> mm.lat?.let { LatLng(it, mm.lng ?: return@let null) } }
             if (target == null) return@LaunchedEffect
             // The map stops following my phone once a person is picked.
             if (m.locationComponent.isLocationComponentActivated) m.locationComponent.cameraMode = CameraMode.NONE
@@ -799,7 +801,7 @@ fun FamilyMap(
     LaunchedEffect(map, fitRequest) {
         val m = map ?: return@LaunchedEffect
         if (fitRequest == 0) return@LaunchedEffect
-        val points = members.map { LatLng(it.lat, it.lng) } + listOfNotNull(mine())
+        val points = members.mapNotNull { mm -> mm.lat?.let { LatLng(it, mm.lng ?: return@let null) } } + listOfNotNull(mine())
         when {
             points.size >= 2 -> m.animateCamera(
                 CameraUpdateFactory.newLatLngBounds(
@@ -987,8 +989,11 @@ private fun addFamilyLayers(style: Style) {
 }
 
 private fun showFamily(context: Context, style: Style, members: List<Member>, colors: Map<String, Int>, now: Long, selectedUid: String?) {
-    val features = members.map { member ->
-        Feature.fromGeometry(Point.fromLngLat(member.lng, member.lat)).apply {
+    // Someone with no position yet has a row but no dot.
+    val features = members.mapNotNull { member ->
+        val lat = member.lat ?: return@mapNotNull null
+        val lng = member.lng ?: return@mapNotNull null
+        Feature.fromGeometry(Point.fromLngLat(lng, lat)).apply {
             addStringProperty("uid", member.uid)
             addStringProperty("name", member.name)
             addStringProperty("state", member.dotState(now))

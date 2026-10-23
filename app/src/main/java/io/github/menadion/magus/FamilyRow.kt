@@ -178,6 +178,7 @@ private fun PersonColumn(person: Person, now: Long, onPick: () -> Unit, modifier
         Markers.State.YOU -> stringResource(R.string.go_to_you)
         Markers.State.PAUSED -> stringResource(R.string.go_to_person_paused, person.name)
         Markers.State.QUIET -> stringResource(R.string.go_to_person_quiet, person.name)
+        Markers.State.WAITING -> stringResource(R.string.go_to_person_waiting, person.name)
         else -> stringResource(R.string.go_to_person, person.name)
     }
     Column(

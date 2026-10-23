@@ -23,7 +23,7 @@ import kotlin.math.max
 // Each picture is drawn so its centre is the dot's centre. With the map anchoring pictures at their
 // centre, the GPS point lands on the dot, not on the tag.
 object Markers {
-    enum class State { YOU, SHARING, PAUSED, QUIET }
+    enum class State { YOU, SHARING, PAUSED, QUIET, WAITING }
 
     private const val PRIMARY = 0xFF2F55C4.toInt()
     private const val FAMILY_GREEN = 0xFF26803F.toInt()
@@ -36,6 +36,7 @@ object Markers {
     fun state(member: Member, now: Long): State = when (member.dotState(now)) {
         "paused" -> State.PAUSED
         "quiet" -> State.QUIET
+        "waiting" -> State.WAITING
         else -> State.SHARING
     }
 
@@ -135,10 +136,10 @@ object Markers {
             State.YOU -> PRIMARY
             State.SHARING -> personColor
             State.PAUSED -> PAUSED_GREY
-            State.QUIET -> WHITE
+            State.QUIET, State.WAITING -> WHITE
         }
         canvas.drawCircle(cx, cy, innerRadius, plain)
-        if (state == State.QUIET) {
+        if (state == State.QUIET || state == State.WAITING) {
             // Hollow: a 4 dp ring in their colour inside the white ring, white middle.
             val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = personColor
@@ -151,7 +152,7 @@ object Markers {
         // Middle: the picture if there is one, else a white centre for you, or the first letter.
         val picture = Photos.decode(photo)
         if (picture != null) {
-            val ringWidth = if (state == State.QUIET) dp(4f) else dp(2.5f)
+            val ringWidth = if (state == State.QUIET || state == State.WAITING) dp(4f) else dp(2.5f)
             val radius = innerRadius - ringWidth
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 shader = BitmapShader(picture, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
@@ -173,7 +174,7 @@ object Markers {
             val letterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 typeface = bold
                 textSize = sp(16f)
-                color = if (state == State.QUIET) personColor else WHITE
+                color = if (state == State.QUIET || state == State.WAITING) personColor else WHITE
             }
             canvas.drawText(
                 letter,

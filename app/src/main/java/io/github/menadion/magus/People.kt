@@ -91,6 +91,7 @@ fun cardStatus(person: Person, now: Long): Pair<String, Color> {
         Markers.State.SHARING -> stringResource(R.string.sharing) to colors.onSurfaceVariant
         Markers.State.PAUSED -> stringResource(R.string.paused_sharing) to colors.onSurfaceVariant
         Markers.State.QUIET -> stringResource(R.string.phone_is_quiet) to colors.error
+        Markers.State.WAITING -> stringResource(R.string.setting_up) to colors.onSurfaceVariant
     }
 }
 
@@ -106,6 +107,7 @@ fun listStatus(person: Person, now: Long): Pair<String, Color> {
         Markers.State.SHARING -> (if (ago == null) stringResource(R.string.sharing) else stringResource(R.string.seen_ago, ago)) to colors.onSurfaceVariant
         Markers.State.PAUSED -> (if (ago == null) stringResource(R.string.paused_sharing) else stringResource(R.string.paused_sharing_ago, ago)) to colors.onSurfaceVariant
         Markers.State.QUIET -> (if (ago == null) stringResource(R.string.phone_quiet) else stringResource(R.string.phone_quiet_ago, ago)) to colors.error
+        Markers.State.WAITING -> stringResource(R.string.setting_up) to colors.onSurfaceVariant
     }
 }
 
@@ -155,7 +157,7 @@ fun Avatar(
                     Text(letter, style = TextStyle(fontFamily = Figtree, fontSize = letterSize, fontWeight = FontWeight.W700), color = Color.White)
                 }
             }
-            Markers.State.QUIET -> {
+            Markers.State.QUIET, Markers.State.WAITING -> {
                 Box(modifier = Modifier.size(size).background(Color.White, CircleShape).border(4.dp, color, CircleShape))
                 Text(letter, style = TextStyle(fontFamily = Figtree, fontSize = letterSize, fontWeight = FontWeight.W700), color = color)
             }
