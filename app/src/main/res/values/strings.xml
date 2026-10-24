@@ -100,7 +100,7 @@
     <string name="ok">OK</string>
 
     <!-- What's new: this version's notes only, rewritten each release. See WhatsNew.kt -->
-    <string name="whats_new_version" translatable="false">0.11</string>
+    <string name="whats_new_version" translatable="false">0.12</string>
     <string name="whats_new">What\'s new</string>
     <string name="whats_new_subtitle">What changed in Mogar %1$s</string>
     <string name="whats_new_title">What\'s new in Mogar %1$s</string>
@@ -108,9 +108,7 @@
     <string name="whats_new_popup_on">On</string>
     <string name="whats_new_popup_off">Off</string>
     <string-array name="whats_new_items">
-        <item>Sharing can no longer say it is on while your phone\'s location is off. If you turn location off, Mogar turns sharing off too and tells you why. Turn location back on and sharing comes back, unless you were the one who turned it off.</item>
-        <item>Your profile picture now shows on your own page even before you have shared a location.</item>
-        <item>This box no longer appears by itself. You can still read what changed any time in \'Settings\', under \'What\'s new\', and turn the box back on there.</item>
+        <item>Someone who has just joined now appears in your family list straight away, marked \'Setting up\', instead of staying invisible until their phone first shares its location. Tapping them opens their card without moving the map.</item>
     </string-array>
 
     <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->
