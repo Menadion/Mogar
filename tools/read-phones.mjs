@@ -125,5 +125,17 @@ for (const row of rows) {
   // Read at the last cold open and then re-sent with every location, so it goes stale: a phone
   // sending right now can still report false here. "last location" above is the live signal.
   console.log(`  sharer alive at last open     ${said(d.sharerRunningAtOpen)}`);
-  if (d.lastCrash) console.log(`  last crash ${d.lastCrash}`);
+  if (d.lastCrash) {
+    const when = d.lastCrashAt
+      ? `${ago(d.lastCrashAt)} on ${d.lastCrashApp ?? "?"}`
+      : "date unknown, recorded before Mogar stamped its crashes";
+    console.log(`  last crash  ${when}`);
+    // Compared for difference, not for order: "0.9" sorts after "0.10" as a string, and the only
+    // thing worth saying is that the phone has moved on since. Deliberately not worded as "fixed"
+    // -- a newer version is not proof the fault is gone, only that this record is from before it.
+    if (d.lastCrashApp && d.app && d.lastCrashApp !== d.app) {
+      console.log(`              (older than this phone's ${d.app}, so probably history)`);
+    }
+    console.log(`              ${d.lastCrash}`);
+  }
 }

@@ -3,10 +3,12 @@ package io.github.menadion.magus
 import android.app.Application
 import android.content.Context
 import android.os.Build
+import java.time.Instant
 
 // What this phone is and how its setup went, sent with every location so a quiet dot can be read
 // from afar: which phone, which Mogar, how each keep-running step stands, whether the sharer was
-// alive the last time the app opened, and the last crash if there was one.
+// alive the last time the app opened, and the last crash if there was one -- with the date and
+// the version it happened on, so a crash fixed releases ago stops reading as a live fault.
 object Diagnostics {
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
 
@@ -39,6 +41,11 @@ object Diagnostics {
         "neverPaused" to KeepRunning.neverPaused(context),
         "sharerRunningAtOpen" to prefs(context).getBoolean("sharerRunningAtOpen", false),
         "lastCrash" to prefs(context).getString("lastCrash", null),
+        // When it crashed and what it was running at the time. Both are absent on a phone whose
+        // crash was recorded before these fields existed, which read-phones reports as unknown
+        // rather than guessing -- that undated state is the whole reason they were added.
+        "lastCrashAt" to prefs(context).getString("lastCrashAt", null),
+        "lastCrashApp" to prefs(context).getString("lastCrashApp", null),
     )
 
     // Catches a crash, keeps its first lines for the next send, then lets Android handle it as usual.
@@ -47,7 +54,13 @@ object Diagnostics {
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             try {
                 val head = error.stackTraceToString().lineSequence().take(4).joinToString(" | ").take(600)
-                prefs(app).edit().putString("lastCrash", head).commit()
+                // One edit for all three, so a crash can never be dated by a run it did not come
+                // from. Still commit() rather than apply(): the process is on its way out.
+                prefs(app).edit()
+                    .putString("lastCrash", head)
+                    .putString("lastCrashAt", Instant.now().toString())
+                    .putString("lastCrashApp", appVersion(app))
+                    .commit()
             } catch (ignored: Exception) {
             }
             previous?.uncaughtException(thread, error)
