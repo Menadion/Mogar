@@ -5,6 +5,10 @@ rules_version = '2';
 //   families/{code}                  anyone signed in can check a code exists (to join) or make a new one;
 //                                    its creator renames it, hands it on, or deletes it as the last to leave
 //   families/{code}/members/{uid}    only members of that family can read it; you can only write your own
+//   pairs/{code}                     a one-time code linking a second phone to an existing member's
+//                                    personId; anyone signed in can check one, only its own family's
+//                                    member can create one, and it can only move from unconsumed to
+//                                    consumed once
 //   feedback/{id}                    anyone signed in can add one; nobody can read them from a phone
 //   probes/{uid}                     one phone's own settings-page report; nobody can read them from a phone
 service cloud.firestore {
@@ -36,6 +40,21 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/families/$(code));
         allow delete: if signedIn() && request.auth.uid == uid;
       }
+    }
+
+    // A pairing code: minted by a phone already in a family, read by the phone redeeming it (which
+    // may not be a member of anything yet, so this only needs signedIn, not isMember). It can only
+    // be created by a member of the family it names, and can only move from unconsumed to consumed
+    // once -- a second redemption attempt sees resource.data.consumedAt already set and is refused.
+    match /pairs/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.createdByUid == request.auth.uid
+        && isMember(request.resource.data.familyCode)
+        && request.resource.data.consumedAt == null;
+      allow update: if signedIn() && resource.data.consumedAt == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['consumedAt', 'consumedByUid'])
+        && request.resource.data.consumedByUid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.createdByUid == request.auth.uid;
     }
 
     // Notes from Settings > Send feedback. A phone can add its own, and no phone can read any.

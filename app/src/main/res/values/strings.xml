@@ -224,6 +224,13 @@
     <string name="no_family_with_code">No family with the code %1$s.</string>
     <string name="cant_read_picture">Couldn\'t read that picture.</string>
 
+    <!-- Pairing a second phone to the same person -->
+    <string name="not_in_family">Join a family first.</string>
+    <string name="no_free_pair_code">Couldn\'t find a free pairing code. Try again.</string>
+    <string name="pair_code_invalid">That code\'s expired or wrong. Check it and try again.</string>
+    <string name="pair_code_used">That code\'s already been used.</string>
+    <string name="pair_code_other_family">That code belongs to a different family.</string>
+
     <!-- Sharing service notification -->
     <string name="channel_sharing">Location sharing</string>
     <string name="sharing_with">Sharing your location with %1$s</string>

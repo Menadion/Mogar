@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import java.util.UUID
 
 // One family member as the map sees them.
 data class Member(
@@ -32,6 +33,8 @@ data class Member(
     val photo: ByteArray? = null, // small JPEG, see Photos
     val phone: String? = null, // +639XXXXXXXXX, optional, see Phone
     val joinedAtMillis: Long? = null, // when the record was made; old records have none
+    val personId: String? = null, // links phones that are the same person; null if unpaired
+    val pairedAtMillis: Long? = null, // when this phone was linked; null for the anchor (rank 0)
 )
 
 // Everything the app knows about "my family": what's saved on this phone, and what's in Firebase.
@@ -328,10 +331,101 @@ object Family {
                         photo = doc.getBlob("photo")?.toBytes(),
                         phone = doc.getString("phone"),
                         joinedAtMillis = doc.getTimestamp("joinedAt")?.toDate()?.time,
+                        personId = doc.getString("personId"),
+                        pairedAtMillis = doc.getTimestamp("pairedAt")?.toDate()?.time,
                     )
                 }
                 onChange(members)
             }
+    }
+
+    // Generates a one-time code that links another phone to this one's person. Replaces any code
+    // this phone already issued, so only one of its codes is ever live. If this phone has no
+    // personId yet (it has never been paired before), mints a fresh one -- not this phone's own
+    // uid, so the group outlives whichever phone paired first.
+    suspend fun generatePairCode(context: Context): String {
+        val code = savedCode(context) ?: error(context.getString(R.string.not_in_family))
+        val uid = myId()
+        val memberRef = db.collection("families").document(code).collection("members").document(uid)
+        val personId = memberRef.get().await().getString("personId") ?: run {
+            val fresh = UUID.randomUUID().toString()
+            memberRef.set(mapOf("personId" to fresh), SetOptions.merge()).await()
+            fresh
+        }
+        db.collection("pairs").whereEqualTo("createdByUid", uid).get().await().documents.forEach {
+            runCatching { it.reference.delete().await() }
+        }
+        repeat(5) {
+            val candidate = (1..6).map { CODE_LETTERS.random() }.joinToString("")
+            val ref = db.collection("pairs").document(candidate)
+            if (!ref.get().await().exists()) {
+                ref.set(mapOf(
+                    "personId" to personId,
+                    "familyCode" to code,
+                    "createdByUid" to uid,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "consumedAt" to null,
+                    "consumedByUid" to null,
+                )).await()
+                return candidate
+            }
+        }
+        error(context.getString(R.string.no_free_pair_code))
+    }
+
+    // Redeems a pairing code. A phone with no family yet joins the code's family and links in one
+    // step, with no name to ask for -- a paired row never shows one. A phone already in a family
+    // just links; if it's in a different family than the code, that's refused, pairing only makes
+    // sense inside one family. The code is claimed before anything else writes, so a second phone
+    // racing the same code loses here rather than after it has already joined or linked.
+    suspend fun redeemPairCode(context: Context, typedCode: String) {
+        val code = typedCode.trim().uppercase()
+        val ref = db.collection("pairs").document(code)
+        val snapshot = ref.get().await()
+        if (!snapshot.exists()) error(context.getString(R.string.pair_code_invalid))
+        val personId = snapshot.getString("personId")!!
+        val familyCode = snapshot.getString("familyCode")!!
+        val myFamilyCode = savedCode(context)
+        if (myFamilyCode != null && myFamilyCode != familyCode) error(context.getString(R.string.pair_code_other_family))
+        val uid = myId()
+
+        runCatching {
+            ref.update(mapOf("consumedAt" to FieldValue.serverTimestamp(), "consumedByUid" to uid)).await()
+        }.onFailure { error(context.getString(R.string.pair_code_used)) }
+
+        val memberRef = db.collection("families").document(familyCode).collection("members").document(uid)
+        if (myFamilyCode == null) {
+            val family = db.collection("families").document(familyCode).get().await()
+            memberRef.set(mapOf(
+                "name" to "",
+                "sharing" to true,
+                "joinedAt" to FieldValue.serverTimestamp(),
+                "personId" to personId,
+                "pairedAt" to FieldValue.serverTimestamp(),
+            )).await()
+            save(context, "", familyCode, family.getString("name"), null)
+        } else {
+            memberRef.set(mapOf("personId" to personId, "pairedAt" to FieldValue.serverTimestamp()), SetOptions.merge()).await()
+        }
+    }
+
+    // Unlinks this phone from its pairing group. If that leaves one phone behind with nobody paired
+    // to it, that phone's own personId clears too, rather than sitting with a dead expand arrow and
+    // nothing under it.
+    suspend fun unpair(context: Context) {
+        val code = savedCode(context) ?: return
+        val uid = myId()
+        val membersCol = db.collection("families").document(code).collection("members")
+        val personId = membersCol.document(uid).get().await().getString("personId") ?: return
+        membersCol.document(uid).update(
+            mapOf("personId" to FieldValue.delete(), "pairedAt" to FieldValue.delete())
+        ).await()
+        val remaining = membersCol.whereEqualTo("personId", personId).get().await().documents
+        if (remaining.size == 1) {
+            membersCol.document(remaining[0].id).update(
+                mapOf("personId" to FieldValue.delete(), "pairedAt" to FieldValue.delete())
+            ).await()
+        }
     }
 }
 
