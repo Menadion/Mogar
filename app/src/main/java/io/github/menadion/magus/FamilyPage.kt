@@ -300,7 +300,7 @@ fun FamilyPage(
             familyWord = stringResource(R.string.family),
             busy = busy,
             problem = problem,
-            onDismiss = { editFamilyName = false },
+            onDismiss = { editFamilyName = false; problem = null },
             onSave = { newName ->
                 attempt {
                     Family.renameFamily(context, newName)
@@ -317,7 +317,7 @@ fun FamilyPage(
             initial = myName,
             busy = busy,
             problem = problem,
-            onDismiss = { editMyName = false },
+            onDismiss = { editMyName = false; problem = null },
             onSave = { newName ->
                 attempt {
                     Family.rename(context, newName)
@@ -333,7 +333,7 @@ fun FamilyPage(
             initial = myPhone,
             busy = busy,
             problem = problem,
-            onDismiss = { editMyPhone = false },
+            onDismiss = { editMyPhone = false; problem = null },
             onSave = { newPhone ->
                 attempt {
                     Family.setPhone(context, newPhone)
@@ -397,7 +397,7 @@ fun FamilyPage(
 
     if (pairStep == PairStep.SHOW) {
         AlertDialog(
-            onDismissRequest = { if (!busy) { pairStep = null; pairCode = null } },
+            onDismissRequest = { if (!busy) { pairStep = null; pairCode = null; problem = null } },
             containerColor = colors.surfaceContainerHigh,
             shape = MaterialTheme.shapes.extraLarge,
             title = { Text(stringResource(R.string.show_code_title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center) },
@@ -416,14 +416,14 @@ fun FamilyPage(
                     problem?.let { Text(it, color = colors.error, modifier = Modifier.padding(top = 8.dp)) }
                 }
             },
-            confirmButton = { TextButton(onClick = { pairStep = null; pairCode = null }) { Text(stringResource(R.string.close)) } },
+            confirmButton = { TextButton(onClick = { pairStep = null; pairCode = null; problem = null }) { Text(stringResource(R.string.close)) } },
         )
     }
 
     if (pairStep == PairStep.ENTER) {
         val focusRequester = remember { FocusRequester() }
         AlertDialog(
-            onDismissRequest = { if (!busy) { pairStep = null; enterPairCode = "" } },
+            onDismissRequest = { if (!busy) { pairStep = null; enterPairCode = ""; problem = null } },
             containerColor = colors.surfaceContainerHigh,
             shape = MaterialTheme.shapes.extraLarge,
             title = { Text(stringResource(R.string.enter_code_title), style = MaterialTheme.typography.headlineMedium) },
@@ -451,7 +451,7 @@ fun FamilyPage(
                     onClick = { attempt { Family.redeemPairCode(context, enterPairCode); pairStep = null; enterPairCode = "" } },
                 ) { Text(stringResource(if (busy) R.string.working else R.string.pair_device)) }
             },
-            dismissButton = { TextButton(enabled = !busy, onClick = { pairStep = null; enterPairCode = "" }) { Text(stringResource(R.string.cancel)) } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { pairStep = null; enterPairCode = ""; problem = null }) { Text(stringResource(R.string.cancel)) } },
         )
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
     }

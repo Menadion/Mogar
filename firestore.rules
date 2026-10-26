@@ -1,6 +1,7 @@
 rules_version = '2';
 
-// Who can see what in Mogar. Paste into Firebase console > Firestore Database > Rules > Publish.
+// Who can see what in Mogar. Deploy with `firebase deploy --only firestore:rules`
+// (or paste into Firebase console > Firestore Database > Rules > Publish).
 //
 //   families/{code}                  anyone signed in can check a code exists (to join) or make a new one;
 //                                    its creator renames it, hands it on, or deletes it as the last to leave
@@ -47,7 +48,9 @@ service cloud.firestore {
     // be created by a member of the family it names, and can only move from unconsumed to consumed
     // once -- a second redemption attempt sees resource.data.consumedAt already set and is refused.
     match /pairs/{code} {
-      allow get: if signedIn();
+      // "list" is separate from "get" in these rules -- generatePairCode queries its own prior
+      // codes by createdByUid to cancel them, which Firestore treats as a list, not a get.
+      allow get, list: if signedIn();
       allow create: if signedIn() && request.resource.data.createdByUid == request.auth.uid
         && isMember(request.resource.data.familyCode)
         && request.resource.data.consumedAt == null;
