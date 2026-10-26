@@ -81,6 +81,14 @@ object Diagnostics {
             .filter { it.isNotBlank() }
             .joinToString(" · ")
     }
+
+    // Just "Xiaomi 23021RAA2Y", the first part of summary() -- the paired-phone row's label.
+    fun phoneModel(diag: Map<String, Any?>?): String? {
+        if (diag == null) return null
+        return listOfNotNull(diag["brand"]?.toString()?.replaceFirstChar { it.uppercase() }, diag["model"]?.toString())
+            .joinToString(" ")
+            .takeIf { it.isNotBlank() }
+    }
 }
 
 // The file every setting on this phone is saved in, still named after the app's first name.

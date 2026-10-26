@@ -80,6 +80,26 @@ data class Person(
     }
 }
 
+// One profile's phones together: the anchor (lowest pairedAt, or none -- rank 0, shows name and
+// photo) and whichever others share its personId, in pairing order. If the anchor unpairs, the
+// next-lowest reshuffles into its place automatically; nothing has to notice.
+data class PersonGroup(val anchor: Person, val children: List<Person>)
+
+fun groupPeople(people: List<Person>): List<PersonGroup> {
+    val seen = mutableSetOf<String>()
+    val result = mutableListOf<PersonGroup>()
+    for (person in people) {
+        val pid = person.member.personId
+        if (pid == null) {
+            result += PersonGroup(person, emptyList())
+        } else if (seen.add(pid)) {
+            val members = people.filter { it.member.personId == pid }.sortedBy { it.member.pairedAtMillis ?: -1L }
+            result += PersonGroup(members.first(), members.drop(1))
+        }
+    }
+    return result
+}
+
 // Status line on the member card.
 @Composable
 fun cardStatus(person: Person, now: Long): Pair<String, Color> {

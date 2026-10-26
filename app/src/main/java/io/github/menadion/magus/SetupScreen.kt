@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +49,10 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-// First open: a name, then one of two choice cards, start a family or join one with its code.
+private enum class SetupMode { START, JOIN, PAIR }
+
+// First open: a name, then one of three choice cards -- start a family, join one with its code,
+// or pair this phone to a profile already in a family via a pairing code.
 // Spec: HANDOFF.md section 8.
 @Composable
 fun SetupScreen(onDone: () -> Unit) {
@@ -60,7 +64,8 @@ fun SetupScreen(onDone: () -> Unit) {
     var phone by remember { mutableStateOf(Phone.digits(Family.savedPhone(context))) }
     var familyName by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
-    var joining by remember { mutableStateOf(false) } // which choice card is open
+    var pairCode by remember { mutableStateOf("") }
+    var mode by remember { mutableStateOf(SetupMode.START) } // which choice card is open
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
 
@@ -132,8 +137,8 @@ fun SetupScreen(onDone: () -> Unit) {
                     title = stringResource(R.string.start_family),
                     subtitle = stringResource(R.string.start_family_subtitle),
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    selected = !joining,
-                    onSelect = { joining = false },
+                    selected = mode == SetupMode.START,
+                    onSelect = { mode = SetupMode.START },
                 ) {
                     OutlinedTextField(
                         value = familyName,
@@ -157,13 +162,14 @@ fun SetupScreen(onDone: () -> Unit) {
                     title = stringResource(R.string.join_family),
                     subtitle = stringResource(R.string.join_family_subtitle),
                     icon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    selected = joining,
-                    onSelect = { joining = true },
+                    selected = mode == SetupMode.JOIN,
+                    onSelect = { mode = SetupMode.JOIN },
                 ) {
                     OutlinedTextField(
                         value = code,
                         onValueChange = { code = it.uppercase().take(6) },
                         label = { Text(stringResource(R.string.family_code)) },
+                        supportingText = { Text(stringResource(R.string.pairing_code_hint)) },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
@@ -175,6 +181,30 @@ fun SetupScreen(onDone: () -> Unit) {
                         shape = CircleShape,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                     ) { Text(stringResource(R.string.join_family_button), style = MaterialTheme.typography.titleSmall) }
+                }
+                ChoiceCard(
+                    title = stringResource(R.string.have_pairing_code),
+                    subtitle = stringResource(R.string.have_pairing_code_subtitle),
+                    icon = { Icon(Icons.Default.Share, contentDescription = null) },
+                    selected = mode == SetupMode.PAIR,
+                    onSelect = { mode = SetupMode.PAIR },
+                ) {
+                    OutlinedTextField(
+                        value = pairCode,
+                        onValueChange = { pairCode = it.uppercase().take(6) },
+                        label = { Text(stringResource(R.string.pairing_code)) },
+                        supportingText = { Text(stringResource(R.string.pairing_code_hint)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Button(
+                        onClick = { attempt { Family.redeemPairCode(context, pairCode) } },
+                        enabled = !busy && pairCode.length == 6,
+                        shape = CircleShape,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                    ) { Text(stringResource(R.string.pair_device), style = MaterialTheme.typography.titleSmall) }
                 }
             }
 

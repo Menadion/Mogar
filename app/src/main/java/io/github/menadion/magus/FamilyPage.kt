@@ -1,11 +1,20 @@
 package io.github.menadion.magus
 
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.booleanResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -84,6 +94,9 @@ fun FamilyPage(
     var copied by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
+    var pairStep by remember { mutableStateOf<PairStep?>(null) }
+    var pairCode by remember { mutableStateOf<String?>(null) }
+    var enterPairCode by remember { mutableStateOf("") }
     val me = people.firstOrNull { it.isYou }
     val myPhoto = me?.member?.photo
 
@@ -141,12 +154,13 @@ fun FamilyPage(
                         textAlign = TextAlign.Center,
                     )
                     if (canRename) {
-                        IconButton(onClick = { editFamilyName = true }, modifier = Modifier.size(40.dp)) {
+                        IconButton(onClick = { editFamilyName = true }, modifier = Modifier.size(48.dp)) {
                             Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.change_family_name), tint = colors.onSurfaceVariant, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
                 // Tap the code to copy it, for pasting into a chat.
+                val copyHint = stringResource(R.string.copy_hint)
                 Text(
                     code,
                     style = MaterialTheme.typography.displayMedium,
@@ -154,11 +168,13 @@ fun FamilyPage(
                     modifier = Modifier
                         .padding(top = 4.dp)
                         .clip(MaterialTheme.shapes.small)
-                        .clickable {
+                        .heightIn(min = 48.dp)
+                        .clickable(onClickLabel = copyHint) {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText("Mogar family code", code))
                             copied = true
                         }
+                        .semantics { role = Role.Button }
                         .padding(horizontal = 12.dp, vertical = 2.dp),
                 )
                 LaunchedEffect(copied) {
@@ -172,6 +188,7 @@ fun FamilyPage(
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = MaterialTheme.typography.bodySmall.fontWeight),
                     color = colors.onSurfaceVariant,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
 
@@ -188,9 +205,7 @@ fun FamilyPage(
                         contentPadding = PaddingValues(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(people, key = { it.uid }) { person ->
-                            PersonRow(person, now, onPick = { onPick(person.uid) })
-                        }
+                        groupedPeopleItems(people, now, onPick)
                     }
                 }
 
@@ -214,7 +229,9 @@ fun FamilyPage(
                                 modifier = Modifier
                                     .padding(top = 4.dp)
                                     .clip(MaterialTheme.shapes.small)
-                                    .clickable { editMyPhone = true }
+                                    .heightIn(min = 48.dp)
+                                    .clickable(onClickLabel = stringResource(R.string.change_number)) { editMyPhone = true }
+                                    .semantics { role = Role.Button }
                                     .padding(vertical = 4.dp),
                             ) {
                                 Text(
@@ -243,7 +260,7 @@ fun FamilyPage(
                             onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                             enabled = !busy,
                             modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(R.string.change_picture), textAlign = TextAlign.Center) }
+                        ) { Text(stringResource(if (busy) R.string.uploading_picture else R.string.change_picture), textAlign = TextAlign.Center) }
                     }
                     if (myPhoto != null) {
                         TextButton(
@@ -252,6 +269,13 @@ fun FamilyPage(
                             modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
                         ) { Text(stringResource(R.string.remove_picture), color = colors.error) }
                     }
+                    NavRow(
+                        title = stringResource(R.string.pair_device),
+                        subtitle = stringResource(R.string.pair_device_subtitle),
+                        icon = { Icon(Icons.Default.Share, contentDescription = null, tint = colors.onSurfaceVariant) },
+                        iconBackground = colors.surfaceContainerHigh,
+                        onClick = { pairStep = PairStep.CHOOSE },
+                    )
                 }
 
                 Group(stringResource(R.string.leave)) {
@@ -275,6 +299,7 @@ fun FamilyPage(
             initial = familyName,
             familyWord = stringResource(R.string.family),
             busy = busy,
+            problem = problem,
             onDismiss = { editFamilyName = false },
             onSave = { newName ->
                 attempt {
@@ -291,6 +316,7 @@ fun FamilyPage(
             title = stringResource(R.string.your_name),
             initial = myName,
             busy = busy,
+            problem = problem,
             onDismiss = { editMyName = false },
             onSave = { newName ->
                 attempt {
@@ -306,6 +332,7 @@ fun FamilyPage(
         NumberDialog(
             initial = myPhone,
             busy = busy,
+            problem = problem,
             onDismiss = { editMyPhone = false },
             onSave = { newPhone ->
                 attempt {
@@ -348,28 +375,117 @@ fun FamilyPage(
             dismissButton = { TextButton(enabled = !busy, onClick = { confirmLeave = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+
+    if (pairStep == PairStep.CHOOSE) {
+        AlertDialog(
+            onDismissRequest = { pairStep = null },
+            containerColor = colors.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.extraLarge,
+            title = { Text(stringResource(R.string.pair_device), style = MaterialTheme.typography.headlineMedium) },
+            text = { Text(stringResource(R.string.pair_device_subtitle), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pairStep = PairStep.SHOW
+                    attempt { pairCode = Family.generatePairCode(context) }
+                }) { Text(stringResource(R.string.show_a_code)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pairStep = PairStep.ENTER }) { Text(stringResource(R.string.enter_a_code)) }
+            },
+        )
+    }
+
+    if (pairStep == PairStep.SHOW) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) { pairStep = null; pairCode = null } },
+            containerColor = colors.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.extraLarge,
+            title = { Text(stringResource(R.string.show_code_title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (busy && pairCode == null) Text(stringResource(R.string.working), color = colors.onSurfaceVariant)
+                    pairCode?.let {
+                        Text(it, style = MaterialTheme.typography.displayMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                    Text(
+                        stringResource(R.string.show_code_instructions),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    problem?.let { Text(it, color = colors.error, modifier = Modifier.padding(top = 8.dp)) }
+                }
+            },
+            confirmButton = { TextButton(onClick = { pairStep = null; pairCode = null }) { Text(stringResource(R.string.close)) } },
+        )
+    }
+
+    if (pairStep == PairStep.ENTER) {
+        val focusRequester = remember { FocusRequester() }
+        AlertDialog(
+            onDismissRequest = { if (!busy) { pairStep = null; enterPairCode = "" } },
+            containerColor = colors.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.extraLarge,
+            title = { Text(stringResource(R.string.enter_code_title), style = MaterialTheme.typography.headlineMedium) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = enterPairCode,
+                        onValueChange = { enterPairCode = it.uppercase().take(6) },
+                        label = { Text(stringResource(R.string.pairing_code)) },
+                        supportingText = { Text(stringResource(R.string.pairing_code_hint)) },
+                        singleLine = true,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            if (!busy && enterPairCode.length == 6) attempt { Family.redeemPairCode(context, enterPairCode); pairStep = null; enterPairCode = "" }
+                        }),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                    )
+                    problem?.let { Text(it, color = colors.error, modifier = Modifier.padding(top = 8.dp)) }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && enterPairCode.length == 6,
+                    onClick = { attempt { Family.redeemPairCode(context, enterPairCode); pairStep = null; enterPairCode = "" } },
+                ) { Text(stringResource(if (busy) R.string.working else R.string.pair_device)) }
+            },
+            dismissButton = { TextButton(enabled = !busy, onClick = { pairStep = null; enterPairCode = "" }) { Text(stringResource(R.string.cancel)) } },
+        )
+        LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    }
 }
+
+private enum class PairStep { CHOOSE, SHOW, ENTER }
 
 // The box for the phone number: "+63" fixed, ten digits typed, Save with the field empty removes it.
 @Composable
-private fun NumberDialog(initial: String?, busy: Boolean, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
+private fun NumberDialog(initial: String?, busy: Boolean, problem: String?, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
     var digits by remember { mutableStateOf(Phone.digits(initial)) }
+    val focusRequester = remember { FocusRequester() }
+    val colors = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = colors.surfaceContainerHigh,
         shape = MaterialTheme.shapes.extraLarge,
         title = { Text(stringResource(R.string.phone_number), style = MaterialTheme.typography.headlineMedium) },
         text = {
-            OutlinedTextField(
-                value = digits,
-                onValueChange = { digits = Phone.clean(it) },
-                prefix = { Text(Phone.PREFIX + " ") },
-                supportingText = { Text(stringResource(R.string.phone_optional)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column {
+                OutlinedTextField(
+                    value = digits,
+                    onValueChange = { digits = Phone.clean(it) },
+                    label = { Text(stringResource(R.string.phone_number)) },
+                    prefix = { Text(Phone.PREFIX + " ") },
+                    supportingText = { Text(stringResource(R.string.phone_optional)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (!busy && digits != Phone.digits(initial)) onSave(Phone.store(digits)) }),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                )
+                problem?.let { Text(it, color = colors.error, modifier = Modifier.padding(top = 8.dp)) }
+            }
         },
         confirmButton = {
             TextButton(enabled = !busy && digits != Phone.digits(initial), onClick = { onSave(Phone.store(digits)) }) {
@@ -378,6 +494,7 @@ private fun NumberDialog(initial: String?, busy: Boolean, onDismiss: () -> Unit,
         },
         dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 }
 
 // One box for changing a name: the field, Cancel, Save.
@@ -386,27 +503,37 @@ private fun NameDialog(
     title: String,
     initial: String,
     busy: Boolean,
+    problem: String?,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
     familyWord: String? = null, // "Family", shown on the side of the field its language puts it
 ) {
     var value by remember { mutableStateOf(initial) }
     val wordFirst = booleanResource(R.bool.family_word_first)
+    val focusRequester = remember { FocusRequester() }
+    val colors = MaterialTheme.colorScheme
+    fun save() { if (value.isNotBlank() && value.trim() != initial) onSave(value.trim()) }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = colors.surfaceContainerHigh,
         shape = MaterialTheme.shapes.extraLarge,
         title = { Text(title, style = MaterialTheme.typography.headlineMedium) },
         text = {
-            OutlinedTextField(
-                value = value,
-                onValueChange = { value = it },
-                singleLine = true,
-                prefix = if (wordFirst) familyWord?.let { { Text("$it ") } } else null,
-                suffix = if (wordFirst) null else familyWord?.let { { Text(it) } },
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    label = { Text(title) },
+                    singleLine = true,
+                    prefix = if (wordFirst) familyWord?.let { { Text("$it ") } } else null,
+                    suffix = if (wordFirst) null else familyWord?.let { { Text(it) } },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (!busy) save() }),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                )
+                problem?.let { Text(it, color = colors.error, modifier = Modifier.padding(top = 8.dp)) }
+            }
         },
         confirmButton = {
             TextButton(enabled = !busy && value.isNotBlank() && value.trim() != initial, onClick = { onSave(value.trim()) }) {
@@ -415,4 +542,5 @@ private fun NameDialog(
         },
         dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 }

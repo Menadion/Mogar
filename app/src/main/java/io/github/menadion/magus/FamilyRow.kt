@@ -3,6 +3,7 @@ package io.github.menadion.magus
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -18,8 +19,11 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
+import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,9 +38,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,10 +50,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -226,9 +239,7 @@ fun FamilyList(people: List<Person>, now: Long, onPick: (String) -> Unit, onClos
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(people, key = { it.uid }) { person ->
-                PersonRow(person, now, onPick = { onPick(person.uid) })
-            }
+            groupedPeopleItems(people, now, onPick)
         }
         Text(
             stringResource(R.string.tap_name_hint),
@@ -240,8 +251,37 @@ fun FamilyList(people: List<Person>, now: Long, onPick: (String) -> Unit, onClos
     }
 }
 
+// Every member, grouped by pairing: each profile's PersonRow, then its other phones indented
+// underneath once expanded. A phone can only ever write its own member doc (firestore.rules), so
+// the unpair 'X' inside PairedChildRow only ever shows on the row that is this phone's own.
+fun LazyListScope.groupedPeopleItems(people: List<Person>, now: Long, onPick: (String) -> Unit) {
+    val myUid = FirebaseAuth.getInstance().currentUser?.uid
+    val groups = groupPeople(people)
+    items(groups, key = { it.anchor.uid }) { group ->
+        Column {
+            var expanded by rememberSaveable { mutableStateOf(false) }
+            PersonRow(
+                group.anchor, now, onPick = { onPick(group.anchor.uid) },
+                childCount = group.children.size, expanded = expanded, onToggleExpand = { expanded = !expanded },
+            )
+            if (expanded) {
+                for (child in group.children) {
+                    PairedChildRow(child, isMine = child.uid == myUid)
+                }
+            }
+        }
+    }
+}
+
 @Composable
-fun PersonRow(person: Person, now: Long, onPick: () -> Unit) {
+fun PersonRow(
+    person: Person,
+    now: Long,
+    onPick: () -> Unit,
+    childCount: Int = 0,
+    expanded: Boolean = false,
+    onToggleExpand: () -> Unit = {},
+) {
     val colors = MaterialTheme.colorScheme
     val state = person.state(now)
     val (status, statusColor) = listStatus(person, now)
@@ -272,7 +312,63 @@ fun PersonRow(person: Person, now: Long, onPick: () -> Unit) {
                     color = if (battery < LOW_BATTERY) colors.error else MogarColors.FamilyGreen,
                 )
             }
-            Icon(Icons.Default.LocationOn, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
+            if (childCount > 0) {
+                IconButton(onClick = onToggleExpand, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = stringResource(if (expanded) R.string.collapse_paired_devices else R.string.expand_paired_devices),
+                        tint = colors.onSurfaceVariant,
+                    )
+                }
+            } else {
+                Icon(Icons.Default.LocationOn, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
+            }
         }
+    }
+}
+
+// One other phone under the same profile: no avatar or name (nothing to tell it apart by), just
+// its model, smaller and indented. The 'X' only shows when this row is this phone's own -- the
+// rules let a phone write only its own member doc, so unpairing someone else's is not possible.
+@Composable
+private fun PairedChildRow(child: Person, isMine: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var confirmUnpair by remember { mutableStateOf(false) }
+    val label = Diagnostics.phoneModel(child.member.diag) ?: stringResource(R.string.paired_device)
+    val locationOff = !child.member.sharing
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 58.dp, end = 14.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            if (locationOff) stringResource(R.string.paired_location_off_label, label) else label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (locationOff) colors.error else colors.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        if (isMine) {
+            IconButton(onClick = { confirmUnpair = true }, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.unpair_device), tint = colors.onSurfaceVariant, modifier = Modifier.size(14.dp))
+            }
+        }
+    }
+    if (confirmUnpair) {
+        AlertDialog(
+            onDismissRequest = { confirmUnpair = false },
+            containerColor = colors.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.extraLarge,
+            title = { Text(stringResource(R.string.unpair_device_q), style = MaterialTheme.typography.headlineMedium) },
+            text = { Text(stringResource(R.string.unpair_device_text), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmUnpair = false
+                    scope.launch { runCatching { Family.unpair(context) }.onFailure { Log.w("Mogar", "unpair failed", it) } }
+                }) { Text(stringResource(R.string.unpair_device), color = colors.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmUnpair = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
