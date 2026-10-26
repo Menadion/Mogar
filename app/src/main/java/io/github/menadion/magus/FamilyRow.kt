@@ -254,19 +254,29 @@ fun FamilyList(people: List<Person>, now: Long, onPick: (String) -> Unit, onClos
 // Every member, grouped by pairing: each profile's PersonRow, then its other phones indented
 // underneath once expanded. A phone can only ever write its own member doc (firestore.rules), so
 // the unpair 'X' inside PairedChildRow only ever shows on the row that is this phone's own.
+//
+// The coroutine that runs the unpair write is launched here, not inside PairedChildRow: that
+// row's own write clears its personId, which the snapshot listener reflects immediately, dropping
+// that child out of the group and disposing PairedChildRow mid-await. This Column's own scope
+// survives that -- its key is the anchor's uid, unaffected by one of its children unpairing.
 fun LazyListScope.groupedPeopleItems(people: List<Person>, now: Long, onPick: (String) -> Unit) {
     val myUid = FirebaseAuth.getInstance().currentUser?.uid
     val groups = groupPeople(people)
     items(groups, key = { it.anchor.uid }) { group ->
         Column {
             var expanded by rememberSaveable { mutableStateOf(false) }
+            val scope = rememberCoroutineScope()
+            val context = LocalContext.current
             PersonRow(
                 group.anchor, now, onPick = { onPick(group.anchor.uid) },
                 childCount = group.children.size, expanded = expanded, onToggleExpand = { expanded = !expanded },
             )
             if (expanded) {
                 for (child in group.children) {
-                    PairedChildRow(child, isMine = child.uid == myUid)
+                    PairedChildRow(
+                        child, isMine = child.uid == myUid,
+                        onUnpair = { scope.launch { runCatching { Family.unpair(context) }.onFailure { Log.w("Mogar", "unpair failed", it) } } },
+                    )
                 }
             }
         }
@@ -330,11 +340,10 @@ fun PersonRow(
 // One other phone under the same profile: no avatar or name (nothing to tell it apart by), just
 // its model, smaller and indented. The 'X' only shows when this row is this phone's own -- the
 // rules let a phone write only its own member doc, so unpairing someone else's is not possible.
+// onUnpair runs in the caller's scope, not this row's own -- see groupedPeopleItems.
 @Composable
-private fun PairedChildRow(child: Person, isMine: Boolean) {
+private fun PairedChildRow(child: Person, isMine: Boolean, onUnpair: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var confirmUnpair by remember { mutableStateOf(false) }
     val label = Diagnostics.phoneModel(child.member.diag) ?: stringResource(R.string.paired_device)
     val locationOff = !child.member.sharing
@@ -365,7 +374,7 @@ private fun PairedChildRow(child: Person, isMine: Boolean) {
             confirmButton = {
                 TextButton(onClick = {
                     confirmUnpair = false
-                    scope.launch { runCatching { Family.unpair(context) }.onFailure { Log.w("Mogar", "unpair failed", it) } }
+                    onUnpair()
                 }) { Text(stringResource(R.string.unpair_device), color = colors.error) }
             },
             dismissButton = { TextButton(onClick = { confirmUnpair = false }) { Text(stringResource(R.string.cancel)) } },
