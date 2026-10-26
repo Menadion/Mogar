@@ -409,23 +409,19 @@ object Family {
         }
     }
 
-    // Unlinks this phone from its pairing group. If that leaves one phone behind with nobody paired
-    // to it, that phone's own personId clears too, rather than sitting with a dead expand arrow and
-    // nothing under it.
+    // Unlinks this phone from its pairing group. A phone can only ever write its own member doc
+    // (firestore.rules), so it can't also clear a lone partner left behind -- that partner's
+    // personId sits there unused, harmlessly: childCount is computed live from who currently
+    // shares a personId, not from a stored flag, so a solo leftover already renders as a plain
+    // row, and generatePairCode reusing that same personId on a future pairing is correct anyway.
     suspend fun unpair(context: Context) {
         val code = savedCode(context) ?: return
         val uid = myId()
         val membersCol = db.collection("families").document(code).collection("members")
-        val personId = membersCol.document(uid).get().await().getString("personId") ?: return
+        if (membersCol.document(uid).get().await().getString("personId") == null) return
         membersCol.document(uid).update(
             mapOf("personId" to FieldValue.delete(), "pairedAt" to FieldValue.delete())
         ).await()
-        val remaining = membersCol.whereEqualTo("personId", personId).get().await().documents
-        if (remaining.size == 1) {
-            membersCol.document(remaining[0].id).update(
-                mapOf("personId" to FieldValue.delete(), "pairedAt" to FieldValue.delete())
-            ).await()
-        }
     }
 }
 
