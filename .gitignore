@@ -14,3 +14,6 @@ keystore.properties
 
 # Screenshots for the design pass; show real locations, never public
 design/
+
+# seed.mjs --strip-me's sidecar: the real device's lat/lng while it's testing never-reported
+tools/me-before-strip.json
