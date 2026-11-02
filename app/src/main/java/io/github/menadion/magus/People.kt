@@ -171,6 +171,7 @@ fun Avatar(
     photo: ByteArray? = null,
     you: Boolean = false, // my own circle keeps the white centre, even when paused
     color: Color = MogarColors.FamilyGreen, // their own colour, from PersonColors
+    badge: Boolean = true, // false where the corner is used for something else, a group's head count
 ) {
     val colors = MaterialTheme.colorScheme
     val letterSize = (size.value * 0.43f).sp
@@ -212,7 +213,7 @@ fun Avatar(
                 Text(letter, style = TextStyle(fontFamily = Figtree, fontSize = letterSize, fontWeight = FontWeight.W700), color = color)
             }
         }
-        if (state == Markers.State.PAUSED || state == Markers.State.QUIET) {
+        if (badge && (state == Markers.State.PAUSED || state == Markers.State.QUIET)) {
             Badge(paused = state == Markers.State.PAUSED, modifier = Modifier.align(Alignment.BottomEnd).offset(x = 6.dp, y = 4.dp))
         }
     }

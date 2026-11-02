@@ -359,7 +359,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
 
     // Where each member's dot sits on screen, and the screen's size, for the edge markers.
     // Held as State, not read here, so a camera frame redraws the edge markers and not this whole screen.
-    val dotPoints = remember { mutableStateOf(emptyMap<String, Offset>()) }
+    val dotPoints = remember { mutableStateOf(emptyList<MapSpot>()) }
     var screenSize by remember { mutableStateOf(IntSize.Zero) }
 
     Box(modifier = Modifier.fillMaxSize().onSizeChanged { screenSize = it }) {
@@ -417,17 +417,18 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             onZoomedIn = { zoomedIn = true },
             // Family whose dots are off the visible map, pinned to its edge and pointing at them.
             // Drawn inside the map's layer so a group's bubble can sit above them.
-            edgeMarkers = {
+            edgeMarkers = { openGroup ->
                 EdgeLayer(
                     people = shownPeople,
                     now = now,
-                    points = dotPoints,
+                    spots = dotPoints,
                     area = Rect(0f, topHeight.toFloat(), screenSize.width.toFloat(), (screenSize.height - bottomHeight).toFloat()),
                     screen = Rect(0f, 0f, screenSize.width.toFloat(), screenSize.height.toFloat()),
                     onPick = {
                         showList = false
                         selectedUid = it
                     },
+                    onGroup = openGroup,
                 )
             },
         )
@@ -626,7 +627,7 @@ private fun isGranted(context: Context, permission: String) =
 fun FamilyMap(
     members: List<Member>,
     colors: Map<String, Int>, // each member's own colour, from PersonColors
-    onProjected: (Map<String, Offset>) -> Unit, // where each dot sits on screen, after every camera move
+    onProjected: (List<MapSpot>) -> Unit, // where each dot sits on screen, after every camera move
     me: Member?,
     now: Long,
     sharing: Boolean,
@@ -640,7 +641,7 @@ fun FamilyMap(
     people: List<Person>, // everyone including me, for the avatars in a group's bubble
     onGroupPick: (String) -> Unit, // an avatar in the bubble was tapped
     onZoomedIn: () -> Unit, // the camera was sent in on a group, so Show everyone belongs on screen
-    edgeMarkers: @Composable () -> Unit, // drawn over the map and under a group's bubble
+    edgeMarkers: @Composable (openGroup: (List<String>) -> Unit) -> Unit, // drawn over the map and under a group's bubble
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -694,23 +695,6 @@ fun FamilyMap(
         }
     }
 
-    // Reports where each member's dot sits on screen, in pixels, for the edge markers.
-    val latestMembers by rememberUpdatedState(members)
-    val latestOnProjected by rememberUpdatedState(onProjected)
-    fun project(m: MapLibreMap) {
-        latestOnProjected(latestMembers.mapNotNull { member ->
-            val lat = member.lat ?: return@mapNotNull null
-            val lng = member.lng ?: return@mapNotNull null
-            m.projection.toScreenLocation(LatLng(lat, lng)).let { member.uid to Offset(it.x, it.y) }
-        }.toMap())
-    }
-    LaunchedEffect(map, members) { map?.let { project(it) } }
-
-    // What the map area shows until the map is really there. MapLibre answers both questions
-    // itself: did a frame finish with its tiles on it, and did loading actually fail. Nothing here
-    // is a fixed delay, so the indicator lasts as long as this phone needs and no longer.
-    val loadState = remember { mutableStateOf(MapLoadState.LOADING) }
-
     // Who is standing together. Worked out when the family changes or the map comes to rest, never
     // on every frame of a drag: the A13 would pay for it, and a group splitting mid-pinch would flicker.
     var restedAt by remember { mutableIntStateOf(0) }
@@ -724,6 +708,40 @@ fun FamilyMap(
     var bubbleTap by remember { mutableIntStateOf(0) }
     var camTick by remember { mutableIntStateOf(0) } // goes up as the camera moves, so the bubble follows its spot
     val currentOnGroupTapped by rememberUpdatedState { uids: List<String> -> bubbleUids = uids; bubbleTap++ }
+
+    // Reports where each dot sits on screen, in pixels, for the edge markers: one per person, and one
+    // per group, which is drawn as a single dot.
+    val latestMembers by rememberUpdatedState(members)
+    val latestGroups by rememberUpdatedState(groups)
+    val latestNow by rememberUpdatedState(now)
+    val latestMe by rememberUpdatedState(me)
+    val latestLocation by rememberUpdatedState(myLocation)
+    val latestOnProjected by rememberUpdatedState(onProjected)
+    fun project(m: MapLibreMap) {
+        fun at(p: LatLng) = m.projection.toScreenLocation(p).let { Offset(it.x, it.y) }
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        val grouped = latestGroups.flatten().toSet()
+        val singles = latestMembers.filter { it.uid !in grouped }.mapNotNull { member ->
+            val lat = member.lat ?: return@mapNotNull null
+            val lng = member.lng ?: return@mapNotNull null
+            MapSpot(member.uid, listOf(member.uid), at(LatLng(lat, lng)))
+        }
+        val byUid = latestMembers.associateBy { it.uid }
+        val crowds = latestGroups.mapNotNull { uids ->
+            val others = uids.mapNotNull { byUid[it] }
+            if (others.isEmpty()) return@mapNotNull null
+            val centre = groupCentre(uids, latestMembers, myUid, whereAmI(latestLocation, latestMe)) ?: return@mapNotNull null
+            MapSpot(groupFace(others, latestNow).uid, uids, at(centre))
+        }
+        latestOnProjected(singles + crowds)
+    }
+    LaunchedEffect(map, members, groups) { map?.let { project(it) } }
+
+    // What the map area shows until the map is really there. MapLibre answers both questions
+    // itself: did a frame finish with its tiles on it, and did loading actually fail. Nothing here
+    // is a fixed delay, so the indicator lasts as long as this phone needs and no longer.
+    val loadState = remember { mutableStateOf(MapLoadState.LOADING) }
+
     val meGrouped = groups.any { g -> FirebaseAuth.getInstance().currentUser?.uid in g }
 
     val mapView = remember {
@@ -813,7 +831,7 @@ fun FamilyMap(
 
     // Redraw the family whenever the list changes, and on each 30-second recheck.
     // Where I am: a live fix first, else what my own record last said.
-    fun myPlace() = myLocation?.let { LatLng(it.latitude, it.longitude) } ?: me?.let { mm -> mm.lat?.let { LatLng(it, mm.lng ?: return@let null) } }
+    fun myPlace() = whereAmI(myLocation, me)
     LaunchedEffect(map, members, selectedUid, restedAt, myLocation, me) {
         val m = map ?: return@LaunchedEffect
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
@@ -936,7 +954,10 @@ fun FamilyMap(
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
         MapLoadingOverlay(loadState.value)
-        edgeMarkers()
+        edgeMarkers { uids ->
+            currentOnDotTapped(null) // a card that was open makes way
+            currentOnGroupTapped(uids)
+        }
         val open = bubbleUids?.let { u -> groups.firstOrNull { g -> g.containsAll(u) } }
         val m = map
         val centre = if (open != null) groupCentre(open, members, FirebaseAuth.getInstance().currentUser?.uid, myPlace()) else null
@@ -955,14 +976,19 @@ fun FamilyMap(
 // Reads the dot positions here, in its own scope, so a camera frame redraws only the edge markers.
 @Composable
 private fun EdgeLayer(
-    people: List<Person>, now: Long, points: State<Map<String, Offset>>, area: Rect, screen: Rect, onPick: (String) -> Unit,
-) = EdgeMarkers(people, now, points.value, area, screen, onPick)
+    people: List<Person>, now: Long, spots: State<List<MapSpot>>, area: Rect, screen: Rect,
+    onPick: (String) -> Unit, onGroup: (List<String>) -> Unit,
+) = EdgeMarkers(people, now, spots.value, area, screen, onPick, onGroup)
 
 // Its own function so that the bubble following the camera redraws only itself, not the whole map screen.
 @Composable
 private fun BubbleLayer(spot: () -> Offset, people: List<Person>, now: Long, onPick: (String) -> Unit) {
     GroupBubble(people = people, now = now, anchor = spot(), onPick = onPick)
 }
+
+// Where I am: a live fix first, else what my own record last said.
+private fun whereAmI(location: Location?, me: Member?): LatLng? =
+    location?.let { LatLng(it.latitude, it.longitude) } ?: me?.let { mm -> mm.lat?.let { LatLng(it, mm.lng ?: return@let null) } }
 
 // The middle of a group's people, which is where its one dot is drawn. I count, using where I am.
 private fun groupCentre(uids: List<String>, members: List<Member>, myUid: String?, myPlace: LatLng?): LatLng? {

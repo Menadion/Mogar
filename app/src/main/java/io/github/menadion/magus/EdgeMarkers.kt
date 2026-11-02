@@ -1,6 +1,11 @@
 package io.github.menadion.magus
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -37,10 +42,18 @@ private val AVATAR = 38.dp
 // tag above it does not count: a marker means the circle itself is gone (M's call, 2026-11-02).
 private val DOT_RADIUS = 26.dp
 
-// points: where each member's dot sits on screen, in pixels. area: the visible gap, in pixels, where the
-// markers sit. screen: the whole map, in pixels, which decides who gets a marker at all.
+// One dot on the map and where it sits on screen, in pixels. A person alone is uids = [uid]. A group is one dot:
+// uid is its face's, uids is everyone in it, and its marker carries the count (M's call, 2026-11-02).
+data class MapSpot(val uid: String, val uids: List<String>, val point: Offset)
+
+// spots: where each dot sits on screen. area: the visible gap, in pixels, where the markers sit. screen: the
+// whole map, in pixels, which decides which dots get a marker at all. A tap on a person's marker does what
+// tapping their dot does (onPick); on a group's it flies to the group and opens its bubble (onGroup).
 @Composable
-fun EdgeMarkers(people: List<Person>, now: Long, points: Map<String, Offset>, area: Rect, screen: Rect, onPick: (String) -> Unit) {
+fun EdgeMarkers(
+    people: List<Person>, now: Long, spots: List<MapSpot>, area: Rect, screen: Rect,
+    onPick: (String) -> Unit, onGroup: (List<String>) -> Unit,
+) {
     if (area.width <= 0f || area.height <= 0f) return
     val density = LocalDensity.current
     val half = with(density) { MARKER.toPx() } / 2
@@ -53,8 +66,10 @@ fun EdgeMarkers(people: List<Person>, now: Long, points: Map<String, Offset>, ar
     val centre = area.center
 
     val placed = mutableListOf<Offset>()
-    people.filter { !it.isYou }.forEach { person ->
-        val point = points[person.uid] ?: return@forEach
+    val byUid = people.filter { !it.isYou }.associateBy { it.uid }
+    spots.forEach { spot ->
+        val person = byUid[spot.uid] ?: return@forEach
+        val point = spot.point
         if (onScreen.contains(point)) return@forEach
         val dx = point.x - centre.x
         val dy = point.y - centre.y
@@ -77,20 +92,25 @@ fun EdgeMarkers(people: List<Person>, now: Long, points: Map<String, Offset>, ar
         }
         placed += at
         val angle = Math.toDegrees(atan2(dy, dx).toDouble()).toFloat()
-        EdgeMarker(person, now, angle, onPick, Modifier.offset { IntOffset((at.x - half).toInt(), (at.y - half).toInt()) })
+        val count = spot.uids.size
+        EdgeMarker(
+            person, now, angle, count,
+            onClick = { if (count > 1) onGroup(spot.uids) else onPick(person.uid) },
+            modifier = Modifier.offset { IntOffset((at.x - half).toInt(), (at.y - half).toInt()) },
+        )
     }
 }
 
 // The white circle, their avatar upright in the middle, and outside it an arrowhead in their own
 // colour turned towards them, set far enough out to clear the pause or clock badge.
 @Composable
-private fun EdgeMarker(person: Person, now: Long, angle: Float, onPick: (String) -> Unit, modifier: Modifier) {
-    val label = stringResource(R.string.go_to_person, person.name)
+private fun EdgeMarker(person: Person, now: Long, angle: Float, count: Int, onClick: () -> Unit, modifier: Modifier) {
+    val label = if (count > 1) stringResource(R.string.go_to_group, count) else stringResource(R.string.go_to_person, person.name)
     Box(
         modifier = modifier
             .size(MARKER)
             .clip(CircleShape)
-            .clickable { onPick(person.uid) }
+            .clickable(onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
@@ -110,13 +130,38 @@ private fun EdgeMarker(person: Person, now: Long, angle: Float, onPick: (String)
             drawPath(arrow, Color.White, style = Stroke(width = 4.dp.toPx(), join = StrokeJoin.Round))
             drawPath(arrow, Color(person.color))
         }
-        Avatar(
-            person.state(now),
-            person.letter,
-            AVATAR,
-            photo = person.member.photo,
-            you = person.isYou,
-            color = Color(person.color),
+        Box(contentAlignment = Alignment.Center) {
+            Avatar(
+                person.state(now),
+                person.letter,
+                AVATAR,
+                photo = person.member.photo,
+                you = person.isYou,
+                color = Color(person.color),
+                badge = count <= 1, // a group's corner holds its count instead
+            )
+            if (count > 1) CountBadge(count, Modifier.align(Alignment.BottomEnd).offset(x = 10.dp, y = 6.dp))
+        }
+    }
+}
+
+// The head count at a group's bottom right, where a single person's pause or clock badge goes.
+@Composable
+private fun CountBadge(count: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(24.dp)
+            .background(Color.White, CircleShape)
+            .padding(2.dp)
+            .background(Color(0xFF1B1B1F), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (count > 99) "99+" else count.toString(),
+            color = Color.White,
+            fontSize = if (count > 99) 8.sp else 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
         )
     }
 }
