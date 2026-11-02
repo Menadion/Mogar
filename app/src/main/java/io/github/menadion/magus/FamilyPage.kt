@@ -59,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,9 +95,13 @@ fun FamilyPage(
     var copied by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
-    var pairStep by remember { mutableStateOf<PairStep?>(null) }
-    var pairCode by remember { mutableStateOf<String?>(null) }
-    var enterPairCode by remember { mutableStateOf("") }
+    // The pairing state is saveable: a code on screen is what the other phone is typing, so a rotation
+    // must not lose it. generatePairCode runs on the button tap, so a restored dialog never mints a second.
+    var pairStep by rememberSaveable { mutableStateOf<PairStep?>(null) }
+    var pairCode by rememberSaveable { mutableStateOf<String?>(null) }
+    var enterPairCode by rememberSaveable { mutableStateOf("") }
+    // A rotation that cut off a code still being made leaves the dialog open with no code: step back.
+    LaunchedEffect(Unit) { if (pairStep == PairStep.SHOW && pairCode == null) pairStep = PairStep.CHOOSE }
     val me = people.firstOrNull { it.isYou }
     val myPhoto = me?.member?.photo
 

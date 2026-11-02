@@ -217,11 +217,13 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     // where it is (M's call, 2026-09-26). Each tap bumps fitRequest, which the map answers.
     var zoomedIn by remember { mutableStateOf(false) }
     var fitRequest by remember { mutableIntStateOf(0) }
-    var showKeepRunning by remember { mutableStateOf(false) }
+    // Saveable so a rotation, or the system reclaiming Mogar while they are in the phone's own
+    // settings pages, brings them back to the same screen rather than the map.
+    var showKeepRunning by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
-    var showFamilyPage by remember { mutableStateOf(false) }
+    var showFamilyPage by rememberSaveable { mutableStateOf(false) }
     var showWhatsNew by remember { mutableStateOf(WhatsNew.dueNow(context)) }
-    var showTutorial by remember { mutableStateOf(Tutorial.dueNow(context)) }
+    var showTutorial by rememberSaveable { mutableStateOf(Tutorial.dueNow(context)) }
     // Asked before anything else is shown, and before any diagnostics are sent (see Consent).
     var showConsent by remember { mutableStateOf(Consent.dueNow(context)) }
     var familyName by remember { mutableStateOf(Family.savedFamilyName(context)) }

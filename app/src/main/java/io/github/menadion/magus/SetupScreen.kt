@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,12 +61,13 @@ fun SetupScreen(onDone: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
 
-    var name by remember { mutableStateOf(Family.savedName(context) ?: "") }
-    var phone by remember { mutableStateOf(Phone.digits(Family.savedPhone(context))) }
-    var familyName by remember { mutableStateOf("") }
-    var code by remember { mutableStateOf("") }
-    var pairCode by remember { mutableStateOf("") }
-    var mode by remember { mutableStateOf(SetupMode.START) } // which choice card is open
+    // Saveable, so rotating the phone mid-setup keeps what was typed.
+    var name by rememberSaveable { mutableStateOf(Family.savedName(context) ?: "") }
+    var phone by rememberSaveable { mutableStateOf(Phone.digits(Family.savedPhone(context))) }
+    var familyName by rememberSaveable { mutableStateOf("") }
+    var code by rememberSaveable { mutableStateOf("") }
+    var pairCode by rememberSaveable { mutableStateOf("") }
+    var mode by rememberSaveable { mutableStateOf(SetupMode.START) } // which choice card is open
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
 
