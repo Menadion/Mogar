@@ -48,6 +48,9 @@ object Family {
     // No I or O, so nobody reads a 1 or a 0 by mistake.
     private const val CODE_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
 
+    // What a typed or pasted code is cleaned to: only letters a code can hold, so "abc-def" works.
+    fun cleanCode(raw: String): String = raw.uppercase().filter { it in CODE_LETTERS }.take(6)
+
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
     private val db get() = FirebaseFirestore.getInstance()
 

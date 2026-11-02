@@ -167,7 +167,7 @@ fun SetupScreen(onDone: () -> Unit) {
                 ) {
                     OutlinedTextField(
                         value = code,
-                        onValueChange = { code = it.uppercase().take(6) },
+                        onValueChange = { code = Family.cleanCode(it) },
                         label = { Text(stringResource(R.string.family_code)) },
                         supportingText = { Text(stringResource(R.string.pairing_code_hint)) },
                         singleLine = true,
@@ -191,7 +191,7 @@ fun SetupScreen(onDone: () -> Unit) {
                 ) {
                     OutlinedTextField(
                         value = pairCode,
-                        onValueChange = { pairCode = it.uppercase().take(6) },
+                        onValueChange = { pairCode = Family.cleanCode(it) },
                         label = { Text(stringResource(R.string.pairing_code)) },
                         supportingText = { Text(stringResource(R.string.pairing_code_hint)) },
                         singleLine = true,

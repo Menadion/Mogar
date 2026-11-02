@@ -431,7 +431,7 @@ fun FamilyPage(
                 Column {
                     OutlinedTextField(
                         value = enterPairCode,
-                        onValueChange = { enterPairCode = it.uppercase().take(6) },
+                        onValueChange = { enterPairCode = Family.cleanCode(it) },
                         label = { Text(stringResource(R.string.pairing_code)) },
                         supportingText = { Text(stringResource(R.string.pairing_code_hint)) },
                         singleLine = true,
