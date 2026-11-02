@@ -41,8 +41,8 @@ object Markers {
     }
 
     // The id the map caches the picture under. Same inputs, same picture.
-    fun id(state: State, name: String, selected: Boolean, you: Boolean = false, photo: ByteArray? = null, personColor: Int = FAMILY_GREEN) =
-        "marker:" + state.name + ":" + (if (selected) "sel:" else "") + (if (you) "you:" else "") +
+    fun id(state: State, name: String, selected: Boolean, you: Boolean = false, photo: ByteArray? = null, personColor: Int = FAMILY_GREEN, count: Int = 0) =
+        "marker:" + state.name + ":" + (if (selected) "sel:" else "") + (if (you) "you:" else "") + (if (count > 1) "x$count:" else "") +
             Photos.key(photo) + ":" + Integer.toHexString(personColor) + ":" + name
 
     // you: this is my own dot, so it keeps the white centre even while paused.
@@ -54,6 +54,7 @@ object Markers {
         you: Boolean = false,
         photo: ByteArray? = null,
         personColor: Int = FAMILY_GREEN, // their own colour, from PersonColors
+        count: Int = 0, // more than 1: this stands for a group, with how many in it
     ): Bitmap {
         val metrics = context.resources.displayMetrics
         val density = metrics.density
@@ -76,7 +77,8 @@ object Markers {
         val outerRadius = dp(dotSize) / 2 + dp(primaryRing)
         val badgeSize = dp(20f)
         val badgePoke = dp(7f)
-        val hasBadge = state == State.PAUSED || state == State.QUIET
+        val isGroup = count > 1
+        val hasBadge = !isGroup && (state == State.PAUSED || state == State.QUIET)
 
         // Tag: text plus 3 dp above and below, 10 dp left and right.
         val tagPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -91,7 +93,7 @@ object Markers {
 
         // The dot sits in the vertical middle; the tag above it is mirrored by empty space below.
         val halfHeight = tagHeight + gap + outerRadius + margin
-        val width = (max(tagWidth, outerRadius * 2 + badgePoke) + margin * 2).toInt() + 1
+        val width = (max(tagWidth, outerRadius * 2 + badgePoke + (if (isGroup) dp(14f) else 0f)) + margin * 2).toInt() + 1
         val height = (halfHeight * 2).toInt() + 1
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         bitmap.density = metrics.densityDpi
@@ -203,6 +205,23 @@ object Markers {
                 canvas.drawLine(bx, by - dp(3f), bx, by, mark)
                 canvas.drawLine(bx, by, bx + dp(2.2f), by, mark)
             }
+        }
+        // A group: the count in the same corner the pause and clock badges use, a little larger.
+        if (isGroup) {
+            val bx = cx + dp(dotSize) / 2 - badgeSize / 2 + badgePoke / 2
+            val by = cy + dp(dotSize) / 2 - badgeSize / 2 + badgePoke / 2
+            val label = if (count > 99) "99+" else count.toString()
+            val countPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = bold
+                textSize = sp(13f)
+                color = WHITE
+            }
+            val radius = max(dp(12f), countPaint.measureText(label) / 2 + dp(5f))
+            plain.color = WHITE
+            canvas.drawCircle(bx, by, radius + dp(2f), plain)
+            plain.color = ON_SURFACE
+            canvas.drawCircle(bx, by, radius, plain)
+            canvas.drawText(label, bx - countPaint.measureText(label) / 2, by - (countPaint.ascent() + countPaint.descent()) / 2, countPaint)
         }
         return bitmap
     }

@@ -140,6 +140,11 @@ private const val SEND_EVERY_MS = 60_000L
 private const val FAMILY_SOURCE = "family"
 private const val ME_SOURCE = "me"
 
+// How close two people must be to stand as one dot, in metres. A fixed number until the setting exists.
+private const val GROUP_RADIUS_M = 50.0
+// Two dots touch when their centres are this close, in dp: one dot's width.
+private const val DOT_TOUCH_DP = 38f
+
 // Flying to a person zooms in one level from wherever the map is, but never less than this.
 private const val STREET_ZOOM = 15.0
 
@@ -692,6 +697,13 @@ fun FamilyMap(
     // is a fixed delay, so the indicator lasts as long as this phone needs and no longer.
     val loadState = remember { mutableStateOf(MapLoadState.LOADING) }
 
+    // Who is standing together. Worked out when the family changes or the map comes to rest, never
+    // on every frame of a drag: the A13 would pay for it, and a group splitting mid-pinch would flicker.
+    var restedAt by remember { mutableIntStateOf(0) }
+    var groups by remember { mutableStateOf(emptyList<List<String>>()) }
+    var joined by remember { mutableStateOf(emptySet<String>()) }
+    val meGrouped = groups.any { g -> FirebaseAuth.getInstance().currentUser?.uid in g }
+
     val mapView = remember {
         MapView(context).apply {
             onCreate(null)
@@ -711,7 +723,7 @@ fun FamilyMap(
                 // looping round the world forever (M's option A, 2026-09-26, until a globe exists).
                 m.setLatLngBoundsForCameraTarget(LatLngBounds.world())
                 m.addOnCameraMoveListener { project(m) }
-                m.addOnCameraIdleListener { project(m) }
+                m.addOnCameraIdleListener { project(m); restedAt++ }
                 // Tilting pulls the blank beyond the poles into view, and nothing here needs it (M's call, 2026-11-02).
                 m.uiSettings.isTiltGesturesEnabled = false
                 m.setMaxPitchPreference(0.0)
@@ -758,21 +770,38 @@ fun FamilyMap(
     DisposableEffect(map, style, hasLocation) {
         val m = map
         val s = style
-        val stop = if (m != null && s != null && hasLocation) showMyLocation(context, m, s) { myLocation = it } else null
+        val stop = if (m != null && s != null && hasLocation) showMyLocation(context, m, s, hidden = { meGrouped }) { myLocation = it } else null
         onDispose { stop?.invoke() }
     }
 
     // My own dot follows my sharing switch: blue, or grey while paused.
-    LaunchedEffect(map, style, hasLocation, sharing, Photos.key(me?.photo)) {
+    LaunchedEffect(map, style, hasLocation, sharing, Photos.key(me?.photo), meGrouped) {
         val s = style ?: return@LaunchedEffect
         val component = map?.locationComponent ?: return@LaunchedEffect
         if (!component.isLocationComponentActivated) return@LaunchedEffect
-        component.lastKnownLocation?.let { drawMe(context, s, it, sharing) }
+        component.lastKnownLocation?.let { drawMe(context, s, it, sharing, meGrouped) }
     }
 
     // Redraw the family whenever the list changes, and on each 30-second recheck.
-    LaunchedEffect(style, members, now, selectedUid) {
-        style?.let { showFamily(context, it, members, colors, now, selectedUid) }
+    // Where I am: a live fix first, else what my own record last said.
+    fun myPlace() = myLocation?.let { LatLng(it.latitude, it.longitude) } ?: me?.let { mm -> mm.lat?.let { LatLng(it, mm.lng ?: return@let null) } }
+    LaunchedEffect(map, members, selectedUid, restedAt, myLocation, me) {
+        val m = map ?: return@LaunchedEffect
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        val touch = DOT_TOUCH_DP * context.resources.displayMetrics.density
+        fun spot(uid: String, at: LatLng) = m.projection.toScreenLocation(at).let { Grouping.Spot(uid, at.latitude, at.longitude, it.x, it.y) }
+        // The person picked comes out of their group and is drawn on their own; the rest stay grouped.
+        val spots = members.filter { it.uid != selectedUid && it.lat != null && it.lng != null }
+            .map { spot(it.uid, LatLng(it.lat!!, it.lng!!)) } +
+            listOfNotNull(if (myUid != null && myUid != selectedUid) myPlace()?.let { spot(myUid, it) } else null)
+        val result = Grouping.group(spots, GROUP_RADIUS_M, touch, joined)
+        groups = result.groups.filter { it.size > 1 }
+        joined = result.joined
+    }
+
+    // Redraw the family whenever the list or the groups change, and on each 30-second recheck.
+    LaunchedEffect(style, members, now, selectedUid, groups) {
+        style?.let { showFamily(context, it, members, colors, now, selectedUid, groups, myPlace()) }
     }
 
     // Picking a person flies the camera to them, aimed at the gap between the top card and the
@@ -781,7 +810,7 @@ fun FamilyMap(
     val density = context.resources.displayMetrics.density
     val side = (12 * density).toInt()
     val tagRoom = (60 * density).toInt() // the name tag sits above the dot
-    fun mine() = myLocation?.let { LatLng(it.latitude, it.longitude) } ?: me?.let { mm -> mm.lat?.let { LatLng(it, mm.lng ?: return@let null) } }
+    fun mine() = myPlace()
     LaunchedEffect(map, selectedUid) {
         val m = map ?: return@LaunchedEffect
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
@@ -876,7 +905,7 @@ private fun checkLocationIsOn(
 // Turns on the blue dot and sends my location at most once a minute while the app is open.
 // Returns a function that stops listening for locations.
 @SuppressLint("MissingPermission") // only called after the permission check above
-private fun showMyLocation(context: Context, map: MapLibreMap, style: Style, onLocation: (Location) -> Unit): () -> Unit {
+private fun showMyLocation(context: Context, map: MapLibreMap, style: Style, hidden: () -> Boolean, onLocation: (Location) -> Unit): () -> Unit {
     val component = map.locationComponent
     component.activateLocationComponent(
         LocationComponentActivationOptions.builder(context, style)
@@ -889,7 +918,7 @@ private fun showMyLocation(context: Context, map: MapLibreMap, style: Style, onL
     var lastSent = 0L
     fun maybeSend(location: Location) {
         onLocation(location)
-        drawMe(context, style, location, Family.isSharing(context))
+        drawMe(context, style, location, Family.isSharing(context), hidden())
         val now = SystemClock.elapsedRealtime()
         if (lastSent == 0L || now - lastSent >= SEND_EVERY_MS) {
             lastSent = now
@@ -955,14 +984,20 @@ private fun markerImage(
     you: Boolean = false,
     photo: ByteArray? = null,
     color: Int = MogarColors.FamilyGreen.toArgb(),
+    count: Int = 0,
 ): String {
-    val id = Markers.id(state, name, selected, you, photo, color)
-    if (style.getImage(id) == null) style.addImage(id, Markers.draw(context, state, name, selected, you, photo, color))
+    val id = Markers.id(state, name, selected, you, photo, color, count)
+    if (style.getImage(id) == null) style.addImage(id, Markers.draw(context, state, name, selected, you, photo, color, count))
     return id
 }
 
 // My dot: primary while sharing, grey while paused, with a "You" tag above it.
-private fun drawMe(context: Context, style: Style, location: Location, sharing: Boolean) {
+// hidden: I am standing in a group, so the group's dot draws me and this one must not.
+private fun drawMe(context: Context, style: Style, location: Location, sharing: Boolean, hidden: Boolean) {
+    if (hidden) {
+        style.getSourceAs<GeoJsonSource>(ME_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        return
+    }
     val state = if (sharing) Markers.State.YOU else Markers.State.PAUSED
     val me = Feature.fromGeometry(Point.fromLngLat(location.longitude, location.latitude)).apply {
         addStringProperty(
@@ -998,9 +1033,14 @@ private fun addFamilyLayers(style: Style) {
     )
 }
 
-private fun showFamily(context: Context, style: Style, members: List<Member>, colors: Map<String, Int>, now: Long, selectedUid: String?) {
+private fun showFamily(
+    context: Context, style: Style, members: List<Member>, colors: Map<String, Int>, now: Long, selectedUid: String?,
+    groups: List<List<String>>, myPlace: LatLng?,
+) {
+    val myUid = FirebaseAuth.getInstance().currentUser?.uid
+    val grouped = groups.flatten().toSet()
     // Someone with no position yet has a row but no dot.
-    val features = members.mapNotNull { member ->
+    val single = members.filter { it.uid !in grouped }.mapNotNull { member ->
         val lat = member.lat ?: return@mapNotNull null
         val lng = member.lng ?: return@mapNotNull null
         Feature.fromGeometry(Point.fromLngLat(lng, lat)).apply {
@@ -1016,7 +1056,29 @@ private fun showFamily(context: Context, style: Style, members: List<Member>, co
             )
         }
     }
-    style.getSourceAs<GeoJsonSource>(FAMILY_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(features))
+
+    // A group is one dot at the middle of its people: the face's picture with the head count on it.
+    // Its uid is the face's, so a tap lands on someone real. I am counted but never the face.
+    val byUid = members.associateBy { it.uid }
+    val crowds = groups.map { uids ->
+        val people = uids.mapNotNull { byUid[it] }
+        val face = groupFace(people, now)
+        val spots = people.mapNotNull { m -> m.lat?.let { LatLng(it, m.lng ?: return@let null) } } +
+            listOfNotNull(if (myUid != null && myUid in uids) myPlace else null)
+        Feature.fromGeometry(Point.fromLngLat(spots.map { it.longitude }.average(), spots.map { it.latitude }.average())).apply {
+            addStringProperty("uid", face.uid)
+            addStringProperty("name", face.name)
+            addStringProperty("group", uids.joinToString(","))
+            addStringProperty(
+                "icon",
+                markerImage(
+                    context, style, Markers.state(face, now), face.name, selected = false,
+                    photo = face.photo, color = colors.getValue(face.uid), count = uids.size,
+                ),
+            )
+        }
+    }
+    style.getSourceAs<GeoJsonSource>(FAMILY_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(single + crowds))
 }
 
 // The floating top card, one row: family name and code on the left, the compact Sharing pill and

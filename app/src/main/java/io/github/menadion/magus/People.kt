@@ -122,6 +122,14 @@ fun profileMembers(members: List<Member>, myPersonId: String?): List<Member> {
     }
 }
 
+// Who stands for a group on the map: the one whose position is freshest among those actually sharing,
+// so the face is always someone you can currently trust. Paused and quiet people only stand for the
+// group when nobody in it is sharing. Pass the others only, never me (M's call, 2026-11-02).
+fun groupFace(others: List<Member>, now: Long): Member =
+    others.filter { it.dotState(now) == "active" }.maxByOrNull { it.updatedAtMillis ?: -1L }
+        ?: others.maxByOrNull { it.updatedAtMillis ?: -1L }
+        ?: error("a group needs someone besides me")
+
 // Status line on the member card.
 @Composable
 fun cardStatus(person: Person, now: Long): Pair<String, Color> {
