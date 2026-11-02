@@ -108,7 +108,10 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                             icon = {
                                 Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                                     Icon(Icons.Default.PlayArrow, contentDescription = null, tint = colors.primary)
-                                    if (!KeepRunning.allDone) UpdateDot(modifier = Modifier.align(Alignment.TopEnd))
+                                    if (!KeepRunning.allDone) UpdateDot(
+                                        modifier = Modifier.align(Alignment.TopEnd),
+                                        description = stringResource(R.string.keep_running_unfinished),
+                                    )
                                 }
                             },
                             onClick = onKeepRunning,

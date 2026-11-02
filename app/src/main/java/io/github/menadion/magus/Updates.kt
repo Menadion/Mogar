@@ -19,6 +19,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
@@ -370,13 +372,16 @@ object Updates {
 }
 
 // The red dot that says "a newer Mogar exists": on the gear's upper-right corner and on the update row.
+// It is silent to a screen reader unless given a description, which only the Keep-running row needs:
+// the gear already says "needs your attention" and the update row's subtitle says "Mogar X is out".
 @Composable
-fun UpdateDot(modifier: Modifier = Modifier) {
+fun UpdateDot(modifier: Modifier = Modifier, description: String? = null) {
     val colors = MaterialTheme.colorScheme
     Box(
         modifier = modifier
             .size(11.dp)
             .background(colors.error, CircleShape)
-            .border(2.dp, colors.surfaceContainerLowest, CircleShape),
+            .border(2.dp, colors.surfaceContainerLowest, CircleShape)
+            .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
     )
 }
