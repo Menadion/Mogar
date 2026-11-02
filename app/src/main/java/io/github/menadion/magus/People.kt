@@ -100,6 +100,28 @@ fun groupPeople(people: List<Person>): List<PersonGroup> {
     return result
 }
 
+// One entry per profile for the map: the anchor's identity (uid, name, photo, number) carrying the
+// position, battery and sharing state of whichever of that profile's phones the dot follows. M's rule
+// (2026-10-26): a phone with location on beats one with it off, then higher battery wins among those
+// that are on. With none on, the one seen most recently stands in and the entry reads paused. An
+// unpaired member passes through untouched. Phones sharing myPersonId are me on my other phone: my own
+// dot already stands for me, so they are left out rather than drawn as someone else.
+fun profileMembers(members: List<Member>, myPersonId: String?): List<Member> {
+    val others = if (myPersonId == null) members else members.filter { it.personId != myPersonId }
+    val seen = mutableSetOf<String>()
+    return others.mapNotNull { member ->
+        val pid = member.personId ?: return@mapNotNull member
+        if (!seen.add(pid)) return@mapNotNull null
+        val phones = others.filter { it.personId == pid }.sortedBy { it.pairedAtMillis ?: -1L }
+        val anchor = phones.first()
+        val placed = phones.filter { it.lat != null && it.lng != null }
+        val stand = placed.filter { it.sharing }.maxByOrNull { it.battery ?: -1 }
+            ?: placed.maxByOrNull { it.updatedAtMillis ?: -1L }
+            ?: return@mapNotNull anchor
+        anchor.copy(lat = stand.lat, lng = stand.lng, battery = stand.battery, updatedAtMillis = stand.updatedAtMillis, sharing = stand.sharing)
+    }
+}
+
 // Status line on the member card.
 @Composable
 fun cardStatus(person: Person, now: Long): Pair<String, Color> {

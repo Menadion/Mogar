@@ -347,13 +347,17 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     val people = listOf(Person(meNow, isYou = true, youLabel = context.getString(R.string.you))) +
         members.sortedBy { it.name.lowercase() }.map { Person(it, isYou = false, color = personColors.getValue(it.uid)) }
 
+    // The map and the edge markers draw one dot per profile, not one per phone (see profileMembers).
+    val shown = profileMembers(members, me?.personId)
+    val shownPeople = shown.map { Person(it, isYou = false, color = personColors.getValue(it.uid)) }
+
     // Where each member's dot sits on screen, and the screen's size, for the edge markers.
     var dotPoints by remember { mutableStateOf(emptyMap<String, Offset>()) }
     var screenSize by remember { mutableStateOf(IntSize.Zero) }
 
     Box(modifier = Modifier.fillMaxSize().onSizeChanged { screenSize = it }) {
         FamilyMap(
-            members = members,
+            members = shown,
             colors = personColors,
             onProjected = { dotPoints = it },
             me = me,
@@ -402,7 +406,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
 
         // Family whose dots are off the visible map, pinned to its edge and pointing at them.
         EdgeMarkers(
-            people = people,
+            people = shownPeople,
             now = now,
             points = dotPoints,
             area = Rect(0f, topHeight.toFloat(), screenSize.width.toFloat(), (screenSize.height - bottomHeight).toFloat()),
@@ -418,7 +422,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
         // family box down and the panel up into the same spot, together; closing slides them back
         // (M's call, 2026-09-26, replacing the panel that rose out of the box). The panel keeps
         // showing the last picked person while it slides away.
-        val selected = people.find { it.uid == selectedUid }
+        val selected = shownPeople.find { it.uid == selectedUid } ?: people.find { it.uid == selectedUid }
         var shown by remember { mutableStateOf<Person?>(null) }
         if (selected != null) {
             shown = selected
