@@ -1,5 +1,6 @@
 package io.github.menadion.magus
 
+import android.provider.Settings
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -16,12 +17,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,7 +60,11 @@ fun MapLoadingOverlay(state: MapLoadState, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        if (state == MapLoadState.LOADING) Ripple(colors.primary) else NoSignal(colors.onSurfaceVariant)
+        when {
+            state != MapLoadState.LOADING -> StillMark(colors.onSurfaceVariant, crossed = true)
+            reduceMotion() -> StillMark(colors.primary, crossed = false)
+            else -> Ripple(colors.primary)
+        }
         Text(
             text = stringResource(
                 when (state) {
@@ -104,16 +111,27 @@ private fun Ripple(color: Color) {
     }
 }
 
-// The same pebble with its ripples gone and a line through it. Deliberately not a wifi mark: the
-// family is on mobile data, and a crossed-out wifi symbol would send them looking for a router
-// when what has usually run out is the load on the SIM.
+// "Remove animations" in the phone's accessibility settings sets the animator scale to 0. Compose
+// already snaps its one-shot animations at 0 (the sliding boxes arrive in a single frame), but an
+// endless one just freezes on whatever frame it was at, so the ripple is swapped for a still mark.
 @Composable
-private fun NoSignal(color: Color) {
+private fun reduceMotion(): Boolean {
+    val resolver = LocalContext.current.contentResolver
+    return remember { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+}
+
+// The pebble with its ripples gone. Crossed out, with a line through it, it is the no-signal mark,
+// deliberately not a wifi mark: the family is on mobile data, and a crossed-out wifi symbol would
+// send them looking for a router when what has usually run out is the load on the SIM. Uncrossed it
+// is the loading mark for someone who has asked the phone for no motion.
+@Composable
+private fun StillMark(color: Color, crossed: Boolean) {
     Canvas(modifier = Modifier.size((PEBBLE_DP * MAX_SCALE).dp)) {
         val centre = Offset(size.width / 2f, size.height / 2f)
         val pebble = PEBBLE_DP.dp.toPx() / 2f * STILL_SCALE
         val ring = RING_DP.dp.toPx() * STILL_SCALE
         drawCircle(color = color, radius = pebble - ring / 2f, center = centre, style = Stroke(width = ring))
+        if (!crossed) return@Canvas
         val reach = pebble * 1.35f
         drawLine(
             color = color,
