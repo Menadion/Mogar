@@ -60,9 +60,9 @@ private val SIDE = 8.dp
 private val BODY_HEIGHT = 92.dp
 private val TAIL = 9.dp
 
-// How far above a group's spot the bubble's tail ends: clear of the marker's name tag, which sits
-// over the avatar (see Markers).
-private val ABOVE_SPOT = 58.dp
+// How far above a group's spot the bubble's tail ends: just clear of the group's dot, which has no
+// name tag (see Markers).
+private val ABOVE_SPOT = 30.dp
 private val EDGE = 8.dp
 
 @Composable

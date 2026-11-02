@@ -93,7 +93,8 @@ object Markers {
 
         // The dot sits in the vertical middle; the tag above it is mirrored by empty space below.
         val halfHeight = tagHeight + gap + outerRadius + margin
-        val width = (max(tagWidth, outerRadius * 2 + badgePoke + (if (isGroup) dp(14f) else 0f)) + margin * 2).toInt() + 1
+        // A group has no tag: the face's name over a crowd would read as "this person is here" (M, 2026-11-03).
+        val width = (max(if (isGroup) 0f else tagWidth, outerRadius * 2 + badgePoke + (if (isGroup) dp(14f) else 0f)) + margin * 2).toInt() + 1
         val height = (halfHeight * 2).toInt() + 1
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         bitmap.density = metrics.densityDpi
@@ -114,14 +115,16 @@ object Markers {
             color = tagFill
             setShadowLayer(dp(5f), 0f, dp(1f), SHADOW)
         }
-        canvas.drawRoundRect(tagRect, dp(10f), dp(10f), fill)
-        tagPaint.color = tagTextColor
-        canvas.drawText(
-            tagText,
-            cx - tagTextWidth / 2,
-            tagRect.centerY() - (tagPaint.ascent() + tagPaint.descent()) / 2,
-            tagPaint,
-        )
+        if (!isGroup) {
+            canvas.drawRoundRect(tagRect, dp(10f), dp(10f), fill)
+            tagPaint.color = tagTextColor
+            canvas.drawText(
+                tagText,
+                cx - tagTextWidth / 2,
+                tagRect.centerY() - (tagPaint.ascent() + tagPaint.descent()) / 2,
+                tagPaint,
+            )
+        }
 
         // Dot, outside in: primary ring (selected only), white ring, coloured centre.
         val plain = Paint(Paint.ANTI_ALIAS_FLAG)
