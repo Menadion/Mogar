@@ -115,7 +115,7 @@
     <string name="ok">OK</string>
 
     <!-- What's new: this version's notes only, rewritten each release. See WhatsNew.kt -->
-    <string name="whats_new_version" translatable="false">0.12</string>
+    <string name="whats_new_version" translatable="false">0.13</string>
     <string name="whats_new">What\'s new</string>
     <string name="whats_new_subtitle">What changed in Mogar %1$s</string>
     <string name="whats_new_title">What\'s new in Mogar %1$s</string>
@@ -123,7 +123,7 @@
     <string name="whats_new_popup_on">On</string>
     <string name="whats_new_popup_off">Off</string>
     <string-array name="whats_new_items">
-        <item>Someone who has just joined now appears in your family list straight away, marked \'Setting up\', instead of staying invisible until their phone first shares its location. Tapping them opens their card without moving the map.</item>
+        <item>People standing close together now show as one dot with a number on it. Tap it to zoom in and see who is there, then tap a face to open their card. Settings has a new Group radius row to choose how close counts as together.</item>
     </string-array>
 
     <!-- The short tour: pictures with a pointing box. See Tutorial.kt -->
