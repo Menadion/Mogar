@@ -47,6 +47,9 @@
     <string name="setting_up">Setting up</string>
     <string name="family_scroll_left">Show more family to the left</string>
     <string name="family_scroll_right">Show more family to the right</string>
+    <string name="group_of">Group of %1$d people</string>
+    <string name="group_scroll_left">Show earlier people in this group</string>
+    <string name="group_scroll_right">Show more people in this group</string>
     <string name="close_list">Close list</string>
     <string name="tap_name_hint">Tap a name to see them on the map</string>
 

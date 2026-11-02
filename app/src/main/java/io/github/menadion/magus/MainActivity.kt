@@ -68,6 +68,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -357,14 +358,15 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     val shownPeople = shown.map { Person(it, isYou = false, color = personColors.getValue(it.uid)) }
 
     // Where each member's dot sits on screen, and the screen's size, for the edge markers.
-    var dotPoints by remember { mutableStateOf(emptyMap<String, Offset>()) }
+    // Held as State, not read here, so a camera frame redraws the edge markers and not this whole screen.
+    val dotPoints = remember { mutableStateOf(emptyMap<String, Offset>()) }
     var screenSize by remember { mutableStateOf(IntSize.Zero) }
 
     Box(modifier = Modifier.fillMaxSize().onSizeChanged { screenSize = it }) {
         FamilyMap(
             members = shown,
             colors = personColors,
-            onProjected = { dotPoints = it },
+            onProjected = { dotPoints.value = it },
             me = me,
             now = now,
             sharing = sharing,
@@ -407,18 +409,26 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                 showList = false
                 selectedUid = uid
             },
-        )
-
-        // Family whose dots are off the visible map, pinned to its edge and pointing at them.
-        EdgeMarkers(
-            people = shownPeople,
-            now = now,
-            points = dotPoints,
-            area = Rect(0f, topHeight.toFloat(), screenSize.width.toFloat(), (screenSize.height - bottomHeight).toFloat()),
-            screen = Rect(0f, 0f, screenSize.width.toFloat(), screenSize.height.toFloat()),
-            onPick = {
+            people = people,
+            onGroupPick = {
                 showList = false
                 selectedUid = it
+            },
+            onZoomedIn = { zoomedIn = true },
+            // Family whose dots are off the visible map, pinned to its edge and pointing at them.
+            // Drawn inside the map's layer so a group's bubble can sit above them.
+            edgeMarkers = {
+                EdgeLayer(
+                    people = shownPeople,
+                    now = now,
+                    points = dotPoints,
+                    area = Rect(0f, topHeight.toFloat(), screenSize.width.toFloat(), (screenSize.height - bottomHeight).toFloat()),
+                    screen = Rect(0f, 0f, screenSize.width.toFloat(), screenSize.height.toFloat()),
+                    onPick = {
+                        showList = false
+                        selectedUid = it
+                    },
+                )
             },
         )
 
@@ -627,6 +637,10 @@ fun FamilyMap(
     locationAsk: Int, // goes up by one each time the sharing pill asks the phone again
     onLocationSettled: (allowed: Boolean) -> Unit, // true when this phone will report a position
     onDotTapped: (String?) -> Unit,
+    people: List<Person>, // everyone including me, for the avatars in a group's bubble
+    onGroupPick: (String) -> Unit, // an avatar in the bubble was tapped
+    onZoomedIn: () -> Unit, // the camera was sent in on a group, so Show everyone belongs on screen
+    edgeMarkers: @Composable () -> Unit, // drawn over the map and under a group's bubble
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -702,6 +716,14 @@ fun FamilyMap(
     var restedAt by remember { mutableIntStateOf(0) }
     var groups by remember { mutableStateOf(emptyList<List<String>>()) }
     var joined by remember { mutableStateOf(emptySet<String>()) }
+
+    // The group whose bubble is open: who was in it when it was tapped. It stays open only while a
+    // group holding all of them still exists (see the grouping effect), so a zoom that pulls an
+    // overlap-only group apart closes it. bubbleTap goes up on each tap that should fly the camera in.
+    var bubbleUids by remember { mutableStateOf<List<String>?>(null) }
+    var bubbleTap by remember { mutableIntStateOf(0) }
+    var camTick by remember { mutableIntStateOf(0) } // goes up as the camera moves, so the bubble follows its spot
+    val currentOnGroupTapped by rememberUpdatedState { uids: List<String> -> bubbleUids = uids; bubbleTap++ }
     val meGrouped = groups.any { g -> FirebaseAuth.getInstance().currentUser?.uid in g }
 
     val mapView = remember {
@@ -722,7 +744,7 @@ fun FamilyMap(
                 // The screen's centre can't cross the date line, so panning sideways ends instead of
                 // looping round the world forever (M's option A, 2026-09-26, until a globe exists).
                 m.setLatLngBoundsForCameraTarget(LatLngBounds.world())
-                m.addOnCameraMoveListener { project(m) }
+                m.addOnCameraMoveListener { project(m); camTick++ }
                 m.addOnCameraIdleListener { project(m); restedAt++ }
                 // Tilting pulls the blank beyond the poles into view, and nothing here needs it (M's call, 2026-11-02).
                 m.uiSettings.isTiltGesturesEnabled = false
@@ -743,7 +765,14 @@ fun FamilyMap(
                         RectF(at.x - reach, at.y - reach, at.x + reach, at.y + reach),
                         "family-dots",
                     ).firstOrNull()
-                    currentOnDotTapped(hit?.getStringProperty("uid"))
+                    val crowd = hit?.getStringProperty("group")
+                    if (crowd != null) {
+                        currentOnDotTapped(null) // a card that was open makes way
+                        currentOnGroupTapped(crowd.split(","))
+                    } else {
+                        bubbleUids = null
+                        currentOnDotTapped(hit?.getStringProperty("uid"))
+                    }
                     hit != null
                 }
             }
@@ -797,7 +826,15 @@ fun FamilyMap(
         val result = Grouping.group(spots, GROUP_RADIUS_M, touch, joined)
         groups = result.groups.filter { it.size > 1 }
         joined = result.joined
+        // The bubble goes with its group: pulled apart by a zoom, or emptied by someone leaving.
+        bubbleUids?.let { open -> if (groups.none { it.containsAll(open) }) bubbleUids = null }
     }
+
+    // Choosing a person (from the map, the family box, or the bubble itself), or Show everyone,
+    // puts the bubble away: the card or the wide view takes over.
+    LaunchedEffect(selectedUid) { if (selectedUid != null) bubbleUids = null }
+    LaunchedEffect(fitRequest) { bubbleUids = null }
+    BackHandler(enabled = bubbleUids != null) { bubbleUids = null }
 
     // Redraw the family whenever the list or the groups change, and on each 30-second recheck.
     LaunchedEffect(style, members, now, selectedUid, groups) {
@@ -835,6 +872,29 @@ fun FamilyMap(
                 700,
             )
         }
+    }
+
+    // Tapping a group flies in on it, as close as street level and no closer, and its bubble opens
+    // over it. Already closer than that, the camera stays at its zoom. An overlap-only group that
+    // the zoom pulls apart loses its bubble in the grouping effect, which is the zoom doing the job.
+    LaunchedEffect(map, bubbleTap) {
+        val m = map ?: return@LaunchedEffect
+        val open = bubbleUids ?: return@LaunchedEffect
+        val target = groupCentre(open, members, FirebaseAuth.getInstance().currentUser?.uid, myPlace()) ?: return@LaunchedEffect
+        if (m.locationComponent.isLocationComponentActivated) m.locationComponent.cameraMode = CameraMode.NONE
+        m.cancelTransitions()
+        onZoomedIn()
+        withFrameNanos { }
+        m.animateCamera(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder()
+                    .target(target)
+                    .zoom(maxOf(m.cameraPosition.zoom, STREET_ZOOM))
+                    .padding(0.0, (paddingTop + tagRoom).toDouble(), 0.0, paddingBottom().toDouble())
+                    .build()
+            ),
+            700,
+        )
     }
 
     LaunchedEffect(map, fitRequest) {
@@ -876,7 +936,41 @@ fun FamilyMap(
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
         MapLoadingOverlay(loadState.value)
+        edgeMarkers()
+        val open = bubbleUids?.let { u -> groups.firstOrNull { g -> g.containsAll(u) } }
+        val m = map
+        val centre = if (open != null) groupCentre(open, members, FirebaseAuth.getInstance().currentUser?.uid, myPlace()) else null
+        if (open != null && m != null && centre != null) {
+            val inBubble = people.filter { it.uid in open }.sortedWith(compareBy({ !it.isYou }, { it.name.lowercase() }))
+            BubbleLayer(
+                spot = { camTick.let { m.projection.toScreenLocation(centre) }.let { Offset(it.x, it.y) } },
+                people = inBubble,
+                now = now,
+                onPick = onGroupPick,
+            )
+        }
     }
+}
+
+// Reads the dot positions here, in its own scope, so a camera frame redraws only the edge markers.
+@Composable
+private fun EdgeLayer(
+    people: List<Person>, now: Long, points: State<Map<String, Offset>>, area: Rect, screen: Rect, onPick: (String) -> Unit,
+) = EdgeMarkers(people, now, points.value, area, screen, onPick)
+
+// Its own function so that the bubble following the camera redraws only itself, not the whole map screen.
+@Composable
+private fun BubbleLayer(spot: () -> Offset, people: List<Person>, now: Long, onPick: (String) -> Unit) {
+    GroupBubble(people = people, now = now, anchor = spot(), onPick = onPick)
+}
+
+// The middle of a group's people, which is where its one dot is drawn. I count, using where I am.
+private fun groupCentre(uids: List<String>, members: List<Member>, myUid: String?, myPlace: LatLng?): LatLng? {
+    val byUid = members.associateBy { it.uid }
+    val spots = uids.mapNotNull { byUid[it] }.mapNotNull { m -> m.lat?.let { LatLng(it, m.lng ?: return@let null) } } +
+        listOfNotNull(if (myUid != null && myUid in uids) myPlace else null)
+    if (spots.isEmpty()) return null
+    return LatLng(spots.map { it.latitude }.average(), spots.map { it.longitude }.average())
 }
 
 // Asks Google whether the phone's location is on. If it's off, shows the box that turns it on and
@@ -1060,12 +1154,11 @@ private fun showFamily(
     // A group is one dot at the middle of its people: the face's picture with the head count on it.
     // Its uid is the face's, so a tap lands on someone real. I am counted but never the face.
     val byUid = members.associateBy { it.uid }
-    val crowds = groups.map { uids ->
+    val crowds = groups.mapNotNull { uids ->
         val people = uids.mapNotNull { byUid[it] }
         val face = groupFace(people, now)
-        val spots = people.mapNotNull { m -> m.lat?.let { LatLng(it, m.lng ?: return@let null) } } +
-            listOfNotNull(if (myUid != null && myUid in uids) myPlace else null)
-        Feature.fromGeometry(Point.fromLngLat(spots.map { it.longitude }.average(), spots.map { it.latitude }.average())).apply {
+        val centre = groupCentre(uids, members, myUid, myPlace) ?: return@mapNotNull null
+        Feature.fromGeometry(Point.fromLngLat(centre.longitude, centre.latitude)).apply {
             addStringProperty("uid", face.uid)
             addStringProperty("name", face.name)
             addStringProperty("group", uids.joinToString(","))
