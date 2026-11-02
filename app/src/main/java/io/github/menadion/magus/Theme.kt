@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -33,7 +34,15 @@ import androidx.core.view.WindowCompat
 object MogarColors {
     val FamilyGreen = Color(0xFF26803F)   // done ticks, battery; one of the PersonColors
     val Paused = Color(0xFF6E7482)        // paused dot
+    val OnPaused = Color(0xFFFFFFFF)      // the sharing pill's glyph while off: 4.7:1 on Paused in both themes
+    val BatteryGreenOnDark = Color(0xFF5CCB7E) // battery text on the dark card, 8.2:1 where FamilyGreen is 3.4:1
 }
+
+// The battery number's green: the family green on a light card, the lighter one on a dark card.
+// "Dark" is whichever theme actually resolved, so the in-app Auto/Light/Dark setting is respected.
+@Composable
+fun batteryGreen(): Color =
+    if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MogarColors.BatteryGreenOnDark else MogarColors.FamilyGreen
 
 private val LightScheme = lightColorScheme(
     primary = Color(0xFF2F55C4),

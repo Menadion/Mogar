@@ -1107,14 +1107,16 @@ fun SharingDot(sharing: Boolean, onToggle: () -> Unit, modifier: Modifier = Modi
                 .background(if (sharing) colors.primary else MogarColors.Paused, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
+            // onPrimary is dark navy in the dark scheme, 3.3:1 on the grey; the off state gets its own white.
+            val glyph = if (sharing) colors.onPrimary else MogarColors.OnPaused
             Icon(
                 Icons.Default.LocationOn,
                 contentDescription = null,
-                tint = colors.onPrimary,
+                tint = glyph,
                 modifier = Modifier.size(22.dp),
             )
             if (!sharing) {
-                val slash = colors.onPrimary
+                val slash = glyph
                 Canvas(modifier = Modifier.size(36.dp)) {
                     drawLine(
                         color = slash,

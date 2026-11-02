@@ -319,7 +319,7 @@ fun PersonRow(
                 Text(
                     "$battery%",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (battery < LOW_BATTERY) colors.error else MogarColors.FamilyGreen,
+                    color = if (battery < LOW_BATTERY) colors.error else batteryGreen(),
                 )
             }
             if (childCount > 0) {
