@@ -103,9 +103,11 @@ fun FamilyRow(
 // row gives each person PERSON_WIDTH and scrolls sideways, the last one cut off at the edge to show
 // there's more, with < and > at its ends that slide it by a screenful less one person (M's call,
 // 2026-09-26). Each arrow shows only while there's more that way.
-private val FIT_WIDTH = 64.dp
+// The gap is 8 dp, the least between two tap targets (M's call, 2026-11-02, UI/UX row 7); FIT_WIDTH
+// went from 64 to 60 with it, so five still fit on a phone 372 dp wide (it was 376 at 64 and 4).
+private val FIT_WIDTH = 60.dp
 private val PERSON_WIDTH = 72.dp
-private val PERSON_GAP = 4.dp
+private val PERSON_GAP = 8.dp
 
 @Composable
 private fun People(people: List<Person>, now: Long, list: LazyListState, onPick: (String) -> Unit, modifier: Modifier = Modifier) {
