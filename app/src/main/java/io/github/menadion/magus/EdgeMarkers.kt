@@ -33,16 +33,21 @@ import kotlin.math.min
 // A tap does what tapping their dot does. Not for you: the locate button brings you back.
 private val MARKER = 88.dp  // the touch area: the 48 dp white circle and the arrowhead outside it
 private val AVATAR = 38.dp
+// The largest a dot's circle gets on the map (the selected one: 46 dp across plus a 3 dp ring). The name
+// tag above it does not count: a marker means the circle itself is gone (M's call, 2026-11-02).
+private val DOT_RADIUS = 26.dp
 
-// points: where each member's dot sits on screen, in pixels. area: the visible gap, in pixels.
+// points: where each member's dot sits on screen, in pixels. area: the visible gap, in pixels, where the
+// markers sit. screen: the whole map, in pixels, which decides who gets a marker at all.
 @Composable
-fun EdgeMarkers(people: List<Person>, now: Long, points: Map<String, Offset>, area: Rect, onPick: (String) -> Unit) {
+fun EdgeMarkers(people: List<Person>, now: Long, points: Map<String, Offset>, area: Rect, screen: Rect, onPick: (String) -> Unit) {
     if (area.width <= 0f || area.height <= 0f) return
     val density = LocalDensity.current
     val half = with(density) { MARKER.toPx() } / 2
     val gap = with(density) { 52.dp.toPx() } // closest two markers may sit, centre to centre
-    // A dot this close inside the gap's edge is visible enough to need no marker.
-    val inside = area.deflate(with(density) { 14.dp.toPx() })
+    // A dot whose circle is still on the screen, even half of it, needs no marker. One under the top card
+    // or the bottom box is on the screen, so it gets none either.
+    val onScreen = screen.inflate(with(density) { DOT_RADIUS.toPx() })
     // Markers sit on this smaller box, so the whole circle and its tip stay in the gap.
     val track = area.deflate(half)
     val centre = area.center
@@ -50,7 +55,7 @@ fun EdgeMarkers(people: List<Person>, now: Long, points: Map<String, Offset>, ar
     val placed = mutableListOf<Offset>()
     people.filter { !it.isYou }.forEach { person ->
         val point = points[person.uid] ?: return@forEach
-        if (inside.contains(point)) return@forEach
+        if (onScreen.contains(point)) return@forEach
         val dx = point.x - centre.x
         val dy = point.y - centre.y
         if (dx == 0f && dy == 0f) return@forEach

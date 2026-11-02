@@ -406,6 +406,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             now = now,
             points = dotPoints,
             area = Rect(0f, topHeight.toFloat(), screenSize.width.toFloat(), (screenSize.height - bottomHeight).toFloat()),
+            screen = Rect(0f, 0f, screenSize.width.toFloat(), screenSize.height.toFloat()),
             onPick = {
                 showList = false
                 selectedUid = it
@@ -707,6 +708,9 @@ fun FamilyMap(
                 m.setLatLngBoundsForCameraTarget(LatLngBounds.world())
                 m.addOnCameraMoveListener { project(m) }
                 m.addOnCameraIdleListener { project(m) }
+                // Tilting pulls the blank beyond the poles into view, and nothing here needs it (M's call, 2026-11-02).
+                m.uiSettings.isTiltGesturesEnabled = false
+                m.setMaxPitchPreference(0.0)
                 m.uiSettings.isCompassEnabled = false
                 m.uiSettings.isLogoEnabled = false
                 m.uiSettings.isAttributionEnabled = false // credit lives under ⋮ > About the map
