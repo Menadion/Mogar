@@ -95,4 +95,7 @@ dependencies {
 
     // The daily update check, which has to run on a phone nobody opens (see AutoUpdate).
     implementation("androidx.work:work-runtime-ktx:2.11.0")
+
+    // Plain-Kotlin tests for logic that needs no phone (Grouping); nothing from here ships in the app.
+    testImplementation("junit:junit:4.13.2")
 }
