@@ -126,7 +126,7 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
 
 // OpenFreeMap: free map tiles, no key. Swapping to an offline file later changes only this line.
-private const val MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
+internal const val MAP_STYLE ="https://tiles.openfreemap.org/styles/liberty"
 
 // How long the map may stay blank before the screen offers a reason. See the LaunchedEffect in
 // FamilyMap: this never ends the wait, it only explains one that is already happening.
@@ -141,8 +141,6 @@ private const val SEND_EVERY_MS = 60_000L
 private const val FAMILY_SOURCE = "family"
 private const val ME_SOURCE = "me"
 
-// How close two people must be to stand as one dot, in metres. A fixed number until the setting exists.
-private const val GROUP_RADIUS_M = 50.0
 // Two dots touch when their centres are this close, in dp: one dot's width.
 private const val DOT_TOUCH_DP = 38f
 
@@ -179,6 +177,7 @@ class MainActivity : ComponentActivity() {
         MapLibre.getInstance(this)
         Diagnostics.noteAppOpened(this)
         ThemeSetting.load(this)
+        GroupRadius.load(this)
         Updates.load(this)
         // The check that runs whether or not anyone opens Mogar again. KEEP inside, so this does
         // not restart the day's clock every time the app is opened.
@@ -227,6 +226,9 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     // settings pages, brings them back to the same screen rather than the map.
     var showKeepRunning by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showGroupRadius by rememberSaveable { mutableStateOf(false) }
+    // Where the main map is looking, for the radius window when this phone has no position to show.
+    var lookingAt by remember { mutableStateOf(PHILIPPINES) }
     var showFamilyPage by rememberSaveable { mutableStateOf(false) }
     var showWhatsNew by remember { mutableStateOf(WhatsNew.dueNow(context)) }
     var showTutorial by rememberSaveable { mutableStateOf(Tutorial.dueNow(context)) }
@@ -415,6 +417,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                 selectedUid = it
             },
             onZoomedIn = { zoomedIn = true },
+            onRested = { lookingAt = it },
             // Family whose dots are off the visible map, pinned to its edge and pointing at them.
             // Drawn inside the map's layer so a group's bubble can sit above them.
             edgeMarkers = { openGroup ->
@@ -563,6 +566,23 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                 onBack = { showSettings = false },
                 onKeepRunning = { showKeepRunning = true },
                 onTutorial = { showTutorial = true },
+                onGroupRadius = { showGroupRadius = true },
+            )
+        }
+
+        if (showGroupRadius) {
+            val lat = me?.lat
+            val lng = me?.lng
+            GroupRadiusDialog(
+                current = GroupRadius.meters,
+                here = if (lat != null && lng != null) LatLng(lat, lng) else null,
+                lookingAt = lookingAt,
+                sharing = sharing,
+                onSave = {
+                    GroupRadius.set(context, it)
+                    showGroupRadius = false
+                },
+                onClose = { showGroupRadius = false },
             )
         }
 
@@ -641,11 +661,13 @@ fun FamilyMap(
     people: List<Person>, // everyone including me, for the avatars in a group's bubble
     onGroupPick: (String) -> Unit, // an avatar in the bubble was tapped
     onZoomedIn: () -> Unit, // the camera was sent in on a group, so Show everyone belongs on screen
+    onRested: (LatLng) -> Unit, // where the camera stopped, for the group radius window's fallback
     edgeMarkers: @Composable (openGroup: (List<String>) -> Unit) -> Unit, // drawn over the map and under a group's bubble
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val currentOnDotTapped by rememberUpdatedState(onDotTapped)
+    val currentOnRested by rememberUpdatedState(onRested)
 
     var hasLocation by remember {
         mutableStateOf(
@@ -763,7 +785,7 @@ fun FamilyMap(
                 // looping round the world forever (M's option A, 2026-09-26, until a globe exists).
                 m.setLatLngBoundsForCameraTarget(LatLngBounds.world())
                 m.addOnCameraMoveListener { project(m); camTick++ }
-                m.addOnCameraIdleListener { project(m); restedAt++ }
+                m.addOnCameraIdleListener { project(m); restedAt++; currentOnRested(m.cameraPosition.target ?: PHILIPPINES) }
                 // Tilting pulls the blank beyond the poles into view, and nothing here needs it (M's call, 2026-11-02).
                 m.uiSettings.isTiltGesturesEnabled = false
                 m.setMaxPitchPreference(0.0)
@@ -832,7 +854,7 @@ fun FamilyMap(
     // Redraw the family whenever the list changes, and on each 30-second recheck.
     // Where I am: a live fix first, else what my own record last said.
     fun myPlace() = whereAmI(myLocation, me)
-    LaunchedEffect(map, members, selectedUid, restedAt, myLocation, me) {
+    LaunchedEffect(map, members, selectedUid, restedAt, myLocation, me, GroupRadius.meters) {
         val m = map ?: return@LaunchedEffect
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
         val touch = DOT_TOUCH_DP * context.resources.displayMetrics.density
@@ -841,7 +863,7 @@ fun FamilyMap(
         val spots = members.filter { it.uid != selectedUid && it.lat != null && it.lng != null }
             .map { spot(it.uid, LatLng(it.lat!!, it.lng!!)) } +
             listOfNotNull(if (myUid != null && myUid != selectedUid) myPlace()?.let { spot(myUid, it) } else null)
-        val result = Grouping.group(spots, GROUP_RADIUS_M, touch, joined)
+        val result = Grouping.group(spots, GroupRadius.meters.toDouble(), touch, joined)
         groups = result.groups.filter { it.size > 1 }
         joined = result.joined
         // The bubble goes with its group: pulled apart by a zoom, or emptied by someone leaving.

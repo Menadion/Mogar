@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
@@ -60,7 +61,7 @@ import kotlinx.coroutines.launch
 // Settings, opened by the gear: the app's own rows, and the version at the bottom. Everything about
 // the family and you lives on the family page (FamilyPage), opened from the family name on the map.
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: () -> Unit, onGroupRadius: () -> Unit) {
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     var showAbout by remember { mutableStateOf(false) }
@@ -115,6 +116,15 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                                 }
                             },
                             onClick = onKeepRunning,
+                        )
+                        Divider()
+                        NavRow(
+                            title = stringResource(R.string.group_radius),
+                            subtitle = GroupRadius.meters.let {
+                                if (it == 0) stringResource(R.string.group_radius_overlap) else stringResource(R.string.group_radius_value, it)
+                            },
+                            icon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = colors.primary) },
+                            onClick = onGroupRadius,
                         )
                         Divider()
                         UpdateRow()

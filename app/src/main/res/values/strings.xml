@@ -47,6 +47,16 @@
     <string name="setting_up">Setting up</string>
     <string name="family_scroll_left">Show more family to the left</string>
     <string name="family_scroll_right">Show more family to the right</string>
+    <string name="group_radius">Group radius</string>
+    <string name="group_radius_explain">People closer together than this show as one group on the map. Only this phone uses it.</string>
+    <string name="group_radius_value">%1$d m</string>
+    <string name="group_radius_overlap">Overlap only</string>
+    <string name="group_radius_map">Circle of %1$d metres</string>
+    <string name="group_radius_example">Location is off, so this is an example.</string>
+    <string name="group_radius_discard_title">Discard changes?</string>
+    <string name="group_radius_discard_text">Your change to the group radius will be lost.</string>
+    <string name="group_radius_discard">Discard</string>
+    <string name="group_radius_keep">Keep editing</string>
     <string name="go_to_group">Go to the group of %1$d people on the map</string>
     <string name="group_of">Group of %1$d people</string>
     <string name="group_scroll_left">Show earlier people in this group</string>
