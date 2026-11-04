@@ -1,12 +1,17 @@
 package io.github.menadion.magus
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -20,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,6 +37,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -55,10 +60,18 @@ import kotlinx.coroutines.launch
 // there is more that way. M's design, 2026-11-02.
 private const val SHOWN = 3
 private val CELL = 72.dp
-private val ARROW_SLOT = 32.dp
 private val SIDE = 8.dp
 private val BODY_HEIGHT = 92.dp
 private val TAIL = 9.dp
+
+// The arrows sit ON the row rather than beside it, over a fade from the bubble's own colour, so an
+// avatar at either end slides under them instead of being cut off at a hard edge. Same construction
+// as FamilyRow's ScrollArrow, which solved this on the bottom strip first. M's call, 2026-11-04:
+// reserved side slots made the arrows look like they were swallowing the people next to them.
+private val FADE = 40.dp
+
+// How far down a cell the avatar's centre sits: 8 dp of padding, then half of 48 dp.
+private val AVATAR_MIDDLE = 16.dp
 
 // How far above a group's spot the bubble's tail ends: just clear of the group's dot, which has no
 // name tag (see Markers).
@@ -74,8 +87,7 @@ fun GroupBubble(
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
-    val more = people.size > SHOWN
-    val width: Dp = CELL * minOf(people.size, SHOWN) + SIDE * 2 + if (more) ARROW_SLOT * 2 else 0.dp
+    val width: Dp = CELL * minOf(people.size, SHOWN) + SIDE * 2
     val height = BODY_HEIGHT + TAIL
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val spotX = with(density) { anchor.x.toDp() }
@@ -94,30 +106,31 @@ fun GroupBubble(
                 .size(width, height)
                 .semantics { contentDescription = description },
         ) {
-            Row(
-                modifier = Modifier.padding(bottom = TAIL).padding(horizontal = SIDE),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Box(modifier = Modifier.fillMaxSize().padding(bottom = TAIL)) {
                 val list = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 val page = with(density) { (CELL * SHOWN).toPx() }
-                if (more) {
-                    Box(modifier = Modifier.width(ARROW_SLOT), contentAlignment = Alignment.Center) {
-                        if (list.canScrollBackward) {
-                            Arrow(left = true, onClick = { scope.launch { list.animateScrollBy(-page) } })
-                        }
-                    }
-                }
-                LazyRow(state = list, modifier = Modifier.width(CELL * minOf(people.size, SHOWN))) {
+                LazyRow(
+                    state = list,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = SIDE),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     items(people, key = { it.uid }) { person -> Cell(person, now, onClick = { onPick(person.uid) }) }
                 }
-                if (more) {
-                    Box(modifier = Modifier.width(ARROW_SLOT), contentAlignment = Alignment.Center) {
-                        if (list.canScrollForward) {
-                            Arrow(left = false, onClick = { scope.launch { list.animateScrollBy(page) } })
-                        }
-                    }
-                }
+                // Drawn after the row, so the row passes underneath them.
+                Arrow(
+                    visible = list.canScrollBackward,
+                    left = true,
+                    onClick = { scope.launch { list.animateScrollBy(-page) } },
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
+                Arrow(
+                    visible = list.canScrollForward,
+                    left = false,
+                    onClick = { scope.launch { list.animateScrollBy(page) } },
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
             }
         }
     }
@@ -155,15 +168,42 @@ private fun Cell(person: Person, now: Long, onClick: () -> Unit) {
     }
 }
 
+// A small round < or > over a fade from the bubble's colour, so people and their names slide under
+// it. The fade runs the body's full height; the button sits level with the avatars. Only the button
+// itself takes a tap: the fade is paint, so a cell showing through it is still tappable.
 @Composable
-private fun Arrow(left: Boolean, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(32.dp)) {
-        Icon(
-            if (left) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = stringResource(if (left) R.string.group_scroll_left else R.string.group_scroll_right),
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(24.dp),
-        )
+private fun Arrow(visible: Boolean, left: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut(), modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .width(FADE)
+                .fillMaxHeight()
+                .background(
+                    Brush.horizontalGradient(
+                        if (left) listOf(colors.surfaceContainerLowest, colors.surfaceContainerLowest.copy(alpha = 0f))
+                        else listOf(colors.surfaceContainerLowest.copy(alpha = 0f), colors.surfaceContainerLowest),
+                    ),
+                ),
+            contentAlignment = if (left) Alignment.TopStart else Alignment.TopEnd,
+        ) {
+            Surface(
+                onClick = onClick,
+                shape = CircleShape,
+                color = colors.surfaceContainerHigh,
+                shadowElevation = 2.dp,
+                modifier = Modifier.padding(top = AVATAR_MIDDLE).size(32.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        if (left) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(if (left) R.string.group_scroll_left else R.string.group_scroll_right),
+                        tint = colors.onSurface,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
