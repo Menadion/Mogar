@@ -57,6 +57,9 @@
     <string name="group_radius_discard_text">Your change to the group radius will be lost.</string>
     <string name="group_radius_discard">Discard</string>
     <string name="group_radius_keep">Keep editing</string>
+    <string name="rain_overlay">Rain on the map</string>
+    <string name="rain_overlay_off">Off</string>
+    <string name="rain_overlay_on">On</string>
     <string name="go_to_group">Go to the group of %1$d people on the map</string>
     <string name="group_of">Group of %1$d people</string>
     <string name="group_scroll_left">Show earlier people in this group</string>

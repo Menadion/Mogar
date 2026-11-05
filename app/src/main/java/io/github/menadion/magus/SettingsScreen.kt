@@ -127,6 +127,18 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                             onClick = onGroupRadius,
                         )
                         Divider()
+                        // Off by default: most of the time there is no rain to draw, and a painted
+                        // map is harder to read than a plain one.
+                        ChoiceRow(
+                            label = stringResource(R.string.rain_overlay),
+                            choices = listOf(
+                                "off" to stringResource(R.string.rain_overlay_off),
+                                "on" to stringResource(R.string.rain_overlay_on),
+                            ),
+                            selected = if (Rain.on) "on" else "off",
+                            onPick = { Rain.set(context, it == "on") },
+                        )
+                        Divider()
                         UpdateRow()
                         Divider()
                         // Reopens this version's notes. Hidden when this build has none.

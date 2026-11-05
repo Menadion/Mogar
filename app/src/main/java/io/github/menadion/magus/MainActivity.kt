@@ -96,7 +96,9 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.Priority
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.math.log2
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
@@ -119,8 +121,12 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
+import org.maplibre.android.style.layers.PropertyFactory.rasterOpacity
+import org.maplibre.android.style.layers.RasterLayer
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.RasterSource
+import org.maplibre.android.style.sources.TileSet
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
@@ -140,6 +146,8 @@ private const val SEND_EVERY_MS = 60_000L
 
 private const val FAMILY_SOURCE = "family"
 private const val ME_SOURCE = "me"
+private const val RAIN_SOURCE = "rain"
+private const val RAIN_LAYER = "rain-tiles"
 
 // Two dots touch when their centres are this close, in dp: one dot's width.
 private const val DOT_TOUCH_DP = 38f
@@ -178,6 +186,7 @@ class MainActivity : ComponentActivity() {
         Diagnostics.noteAppOpened(this)
         ThemeSetting.load(this)
         GroupRadius.load(this)
+        Rain.load(this)
         Updates.load(this)
         // The check that runs whether or not anyone opens Mogar again. KEEP inside, so this does
         // not restart the day's clock every time the app is opened.
@@ -759,6 +768,22 @@ fun FamilyMap(
     }
     LaunchedEffect(map, members, groups) { map?.let { project(it) } }
 
+    // Rain on the map, refreshed for as long as it is switched on. The layer goes under the
+    // family dots so nobody is painted over, and is taken out again when switched off so its
+    // tiles stop being held. A failed fetch leaves whatever frame is already up and tries again.
+    LaunchedEffect(style, Rain.on) {
+        val s = style ?: return@LaunchedEffect
+        if (!Rain.on) {
+            removeRain(s)
+            return@LaunchedEffect
+        }
+        while (true) {
+            val tiles = withContext(Dispatchers.IO) { runCatching { Rain.latestTiles(context) }.getOrNull() }
+            if (tiles != null) showRain(s, tiles)
+            delay(Rain.REFRESH_MS)
+        }
+    }
+
     // What the map area shows until the map is really there. MapLibre answers both questions
     // itself: did a frame finish with its tiles on it, and did loading actually fail. Nothing here
     // is a fixed delay, so the indicator lasts as long as this phone needs and no longer.
@@ -1148,6 +1173,20 @@ private fun drawMe(context: Context, style: Style, location: Location, sharing: 
         )
     }
     style.getSourceAs<GeoJsonSource>(ME_SOURCE)?.setGeoJson(me)
+}
+
+// Swaps in a radar frame. The source is rebuilt rather than updated, because a frame is a new
+// tile URL and not new data at the same one.
+private fun showRain(style: Style, tiles: String) {
+    removeRain(style)
+    style.addSource(RasterSource(RAIN_SOURCE, TileSet("2.2.0", tiles), 256))
+    // Below the dots, so the family is never underneath the weather.
+    style.addLayerBelow(RasterLayer(RAIN_LAYER, RAIN_SOURCE).withProperties(rasterOpacity(0.65f)), "family-dots")
+}
+
+private fun removeRain(style: Style) {
+    style.getLayer(RAIN_LAYER)?.let { style.removeLayer(it) }
+    style.getSource(RAIN_SOURCE)?.let { style.removeSource(it) }
 }
 
 // Family members are drawn from one list of points, each with its own picture (see Markers).
