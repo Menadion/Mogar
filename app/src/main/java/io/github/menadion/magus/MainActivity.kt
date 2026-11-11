@@ -180,11 +180,18 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Before super: the window's background is drawn from the manifest theme before Compose
+        // has a frame, and that theme follows the phone, not the in-app setting. A forced Light or
+        // Dark swaps it here, so a Dark phone no longer flashes white on a cold start.
+        ThemeSetting.load(this)
+        when (ThemeSetting.mode) {
+            ThemeSetting.DARK -> setTheme(R.style.Theme_Mogar_Dark)
+            ThemeSetting.LIGHT -> setTheme(R.style.Theme_Mogar_Light)
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         MapLibre.getInstance(this)
         Diagnostics.noteAppOpened(this)
-        ThemeSetting.load(this)
         GroupRadius.load(this)
         Rain.load(this)
         Updates.load(this)

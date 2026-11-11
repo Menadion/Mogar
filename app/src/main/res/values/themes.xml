@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The window's own background, drawn before Compose has a frame. Each matches MogarTheme's
+     surface colour (Theme.kt), so a cold start shows the right colour and not Android's white.
+     Theme.Mogar follows the phone (values-night turns it dark); MainActivity swaps in Light or
+     Dark when the in-app Theme setting forces one. -->
+<resources>
+    <style name="Theme.Mogar.Light" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFFAF9FD</item>
+    </style>
+    <style name="Theme.Mogar.Dark" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF121318</item>
+    </style>
+    <style name="Theme.Mogar" parent="Theme.Mogar.Light" />
+</resources>

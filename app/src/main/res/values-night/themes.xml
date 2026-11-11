@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The phone is in dark mode: the window starts dark, see values/themes.xml. -->
+<resources>
+    <style name="Theme.Mogar" parent="Theme.Mogar.Dark" />
+</resources>
