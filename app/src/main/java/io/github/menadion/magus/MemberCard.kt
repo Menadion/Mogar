@@ -149,13 +149,18 @@ fun MemberCard(person: Person, now: Long, onClose: () -> Unit, modifier: Modifie
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
         }
-        (person.member.diag?.get("lastCrash") as? String)?.let { crash ->
+        // When it last crashed and on which Mogar, never the exception text: that is for
+        // read-phones on the laptop, not a person's card. A crash recorded before 0.13 dated them
+        // shows nothing, since an undated crash reads as live when it is history.
+        val crashAt = (person.member.diag?.get("lastCrashAt") as? String)
+            ?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+        if (crashAt != null) {
+            val at = lastSeenText(crashAt, now)
+            val app = person.member.diag?.get("lastCrashApp") as? String
             Text(
-                "Last crash: $crash",
+                if (app != null) stringResource(R.string.last_crash_on, at, app) else stringResource(R.string.last_crash, at),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.error,
-                maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
         }

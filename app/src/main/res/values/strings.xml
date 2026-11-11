@@ -74,6 +74,8 @@
     <string name="min_ago">%1$d min ago</string>
     <string name="hr_ago">%1$d hr ago</string>
     <string name="yesterday_at">yesterday %1$s</string>
+    <string name="last_crash">Last crash · %1$s</string>
+    <string name="last_crash_on">Last crash · %1$s · Mogar %2$s</string>
 
     <!-- Status lines -->
     <string name="sharing_on">Sharing ON</string>
