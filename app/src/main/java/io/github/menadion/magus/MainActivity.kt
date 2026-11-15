@@ -148,6 +148,12 @@ private const val FAMILY_SOURCE = "family"
 private const val ME_SOURCE = "me"
 private const val RAIN_SOURCE = "rain"
 private const val RAIN_LAYER = "rain-tiles"
+private const val SATELLITE_SOURCE = "rain-satellite"
+private const val SATELLITE_LAYER = "rain-satellite-tiles"
+
+// Above this zoom the satellite is a stretched smear over somebody's street, and the radar is the
+// only one of the two still saying anything useful, so it comes off and the plain map returns.
+private const val SATELLITE_HIDE_ABOVE = 10.0f
 
 // Two dots touch when their centres are this close, in dp: one dot's width.
 private const val DOT_TOUCH_DP = 38f
@@ -785,7 +791,7 @@ fun FamilyMap(
             return@LaunchedEffect
         }
         while (true) {
-            val tiles = withContext(Dispatchers.IO) { runCatching { Rain.latestTiles(context) }.getOrNull() }
+            val tiles = withContext(Dispatchers.IO) { runCatching { Rain.latest(context) }.getOrNull() }
             if (tiles != null) showRain(s, tiles)
             delay(Rain.REFRESH_MS)
         }
@@ -1184,16 +1190,49 @@ private fun drawMe(context: Context, style: Style, location: Location, sharing: 
 
 // Swaps in a radar frame. The source is rebuilt rather than updated, because a frame is a new
 // tile URL and not new data at the same one.
-private fun showRain(style: Style, tiles: String) {
+private fun showRain(style: Style, tiles: Rain.Tiles) {
     removeRain(style)
-    style.addSource(RasterSource(RAIN_SOURCE, TileSet("2.2.0", tiles), 256))
-    // Below the dots, so the family is never underneath the weather.
-    style.addLayerBelow(RasterLayer(RAIN_LAYER, RAIN_SOURCE).withProperties(rasterOpacity(0.65f)), "family-dots")
+
+    // The satellite tile is opaque, so where it goes in the stack decides whether the map survives
+    // it at all. Dropped just under the family dots it would bury every coastline and city name;
+    // put under the style's first label layer instead, it covers the land and water fills while
+    // the labels ride on top, which is how a weather picture is meant to read. The radar then sits
+    // directly above it -- which also takes the rain off the labels, where it used to tint them.
+    val firstLabel = style.layers.firstOrNull { it is SymbolLayer }?.id
+    style.addSource(
+        RasterSource(
+            SATELLITE_SOURCE,
+            TileSet("2.2.0", tiles.satellite).apply { maxZoom = Rain.SATELLITE_MAX_ZOOM },
+            256,
+        )
+    )
+    val satellite = RasterLayer(SATELLITE_LAYER, SATELLITE_SOURCE)
+    if (firstLabel != null) style.addLayerBelow(satellite, firstLabel)
+    else style.addLayerBelow(satellite, "family-dots")
+    // Set after the add, which is the order MapLibre documents for a layer's zoom range.
+    satellite.maxZoom = SATELLITE_HIDE_ABOVE
+
+    // Capped, or above zoom 7 RainViewer serves its "Zoom Level Not Supported" picture instead of
+    // weather -- see Rain.RADAR_MAX_ZOOM. Capped, the zoom-7 tile is stretched instead, so rain
+    // still shows on a street-level map, in kilometre-wide blocks.
+    style.addSource(
+        RasterSource(
+            RAIN_SOURCE,
+            TileSet("2.2.0", tiles.radar).apply { maxZoom = Rain.RADAR_MAX_ZOOM },
+            256,
+        )
+    )
+    style.addLayerAbove(
+        RasterLayer(RAIN_LAYER, RAIN_SOURCE).withProperties(rasterOpacity(0.65f)),
+        SATELLITE_LAYER,
+    )
 }
 
 private fun removeRain(style: Style) {
     style.getLayer(RAIN_LAYER)?.let { style.removeLayer(it) }
     style.getSource(RAIN_SOURCE)?.let { style.removeSource(it) }
+    style.getLayer(SATELLITE_LAYER)?.let { style.removeLayer(it) }
+    style.getSource(SATELLITE_SOURCE)?.let { style.removeSource(it) }
 }
 
 // Family members are drawn from one list of points, each with its own picture (see Markers).
