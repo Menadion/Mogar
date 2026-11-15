@@ -48,9 +48,16 @@ service cloud.firestore {
     // be created by a member of the family it names, and can only move from unconsumed to consumed
     // once -- a second redemption attempt sees resource.data.consumedAt already set and is refused.
     match /pairs/{code} {
-      // "list" is separate from "get" in these rules -- generatePairCode queries its own prior
-      // codes by createdByUid to cancel them, which Firestore treats as a list, not a get.
-      allow get, list: if signedIn();
+      // "get" stays open to any signed-in phone and has to: minting reads a random candidate to
+      // see whether it is free, and redeeming reads the code someone typed in -- in neither case
+      // does the reading phone own the doc. Guessing one is 24^6, about 191 million, against the
+      // handful ever live.
+      // "list" was the enumeration hole: it let any signed-in phone pull every live code at once.
+      // Narrowed to the phone's own codes, which is all generatePairCode ever asks for -- it
+      // queries whereEqualTo("createdByUid", uid) to cancel its prior codes, and Firestore checks
+      // a list rule against the query, so the constraint in the query is what makes this pass.
+      allow get: if signedIn();
+      allow list: if signedIn() && resource.data.createdByUid == request.auth.uid;
       allow create: if signedIn() && request.resource.data.createdByUid == request.auth.uid
         && isMember(request.resource.data.familyCode)
         && request.resource.data.consumedAt == null;
