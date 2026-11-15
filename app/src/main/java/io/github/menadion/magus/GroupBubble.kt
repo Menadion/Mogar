@@ -109,7 +109,7 @@ fun GroupBubble(
             Box(modifier = Modifier.fillMaxSize().padding(bottom = TAIL)) {
                 val list = rememberLazyListState()
                 val scope = rememberCoroutineScope()
-                val page = with(density) { (CELL * SHOWN).toPx() }
+                val page = with(density) { CELL.toPx() }
                 LazyRow(
                     state = list,
                     modifier = Modifier.fillMaxSize(),
