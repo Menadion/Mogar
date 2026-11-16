@@ -42,7 +42,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.Role
@@ -55,6 +54,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -79,6 +79,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
@@ -121,12 +124,17 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
+import org.maplibre.android.style.layers.PropertyFactory.lineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
+import org.maplibre.android.style.layers.PropertyFactory.lineWidth
 import org.maplibre.android.style.layers.PropertyFactory.rasterOpacity
+import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.RasterLayer
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.RasterSource
 import org.maplibre.android.style.sources.TileSet
+import org.maplibre.android.style.sources.VectorSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
@@ -150,6 +158,20 @@ private const val RAIN_SOURCE = "rain"
 private const val RAIN_LAYER = "rain-tiles"
 private const val SATELLITE_SOURCE = "rain-satellite"
 private const val SATELLITE_LAYER = "rain-satellite-tiles"
+private const val COAST_LAYER = "rain-coastline"
+
+// Where the satellite is slid into the style. Liberty's first SymbolLayer is road_one_way_arrow,
+// not a place name, so anchoring on "the first label" left one-way arrows floating on the cloud and
+// buried the borders. boundary_3 is the lowest of the three boundary layers and sits directly under
+// the real labels, so one anchor puts borders and every label above the weather and leaves roads,
+// bridges and buildings under it, which is the right side of the line for each.
+private const val BOUNDARY_ANCHOR = "boundary_3"
+
+// The source layer the coastline is traced from. Liberty has no coastline layer at all -- the coast
+// is only where the water fill stops -- and the boundary layers all filter out maritime edges, so an
+// archipelago gets no outline from them. Drawing the water polygons as a line is what puts the
+// country's shape back on top of the cloud.
+private const val WATER_SOURCE_LAYER = "water"
 
 // Above this zoom the satellite is a stretched smear over somebody's street, and the radar is the
 // only one of the two still saying anything useful, so it comes off and the plain map returns.
@@ -549,15 +571,26 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                     onFamily = { showFamilyPage = true },
                 )
             }
-            AnimatedVisibility(visible = zoomedIn) {
-                ShowEveryoneButton(
-                    onClick = {
-                        selectedUid = null
-                        zoomedIn = false
-                        fitRequest++
-                    },
-                    modifier = Modifier.padding(start = 12.dp, top = 12.dp),
-                )
+            // One row under the card: Show everyone comes and goes on the left, the weather
+            // switch stays put on the right. Opposite ends so neither moves when the other appears.
+            // The weather switch's place here is PROVISIONAL -- see WeatherButton.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, top = 12.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AnimatedVisibility(visible = zoomedIn) {
+                    ShowEveryoneButton(
+                        onClick = {
+                            selectedUid = null
+                            zoomedIn = false
+                            fitRequest++
+                        },
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                WeatherButton(on = Rain.on, onClick = { Rain.set(context, !Rain.on) })
             }
         }
 
@@ -1193,12 +1226,14 @@ private fun drawMe(context: Context, style: Style, location: Location, sharing: 
 private fun showRain(style: Style, tiles: Rain.Tiles) {
     removeRain(style)
 
-    // The satellite tile is opaque, so where it goes in the stack decides whether the map survives
-    // it at all. Dropped just under the family dots it would bury every coastline and city name;
-    // put under the style's first label layer instead, it covers the land and water fills while
-    // the labels ride on top, which is how a weather picture is meant to read. The radar then sits
-    // directly above it -- which also takes the rain off the labels, where it used to tint them.
-    val firstLabel = style.layers.firstOrNull { it is SymbolLayer }?.id
+    // The satellite tile is opaque, so where it goes in the stack decides what survives it. Slid in
+    // under BOUNDARY_ANCHOR it covers the land, water and road work while borders and every label
+    // ride on top, which is how a weather picture is meant to read. The fallbacks only matter if
+    // Liberty is restyled under us: the layer still lands somewhere sane rather than not at all.
+    val anchor = when {
+        style.getLayer(BOUNDARY_ANCHOR) != null -> BOUNDARY_ANCHOR
+        else -> style.layers.firstOrNull { it is SymbolLayer }?.id ?: "family-dots"
+    }
     style.addSource(
         RasterSource(
             SATELLITE_SOURCE,
@@ -1207,10 +1242,22 @@ private fun showRain(style: Style, tiles: Rain.Tiles) {
         )
     )
     val satellite = RasterLayer(SATELLITE_LAYER, SATELLITE_SOURCE)
-    if (firstLabel != null) style.addLayerBelow(satellite, firstLabel)
-    else style.addLayerBelow(satellite, "family-dots")
+    style.addLayerBelow(satellite, anchor)
     // Set after the add, which is the order MapLibre documents for a layer's zoom range.
     satellite.maxZoom = SATELLITE_HIDE_ABOVE
+
+    // The coastline, traced straight off the water polygons already in the vector source the base
+    // map is drawn from -- no second download, no second source. Dark rather than white because the
+    // backdrop is always satellite imagery here, where the sea reads mid-grey and a cloud top reads
+    // white: a dark line is the one colour legible against both. It dies with the satellite, above
+    // which it would only be an outline around every pond.
+    val vector = style.sources.firstOrNull { it is VectorSource }?.id
+    if (vector != null) {
+        val coast = LineLayer(COAST_LAYER, vector).withSourceLayer(WATER_SOURCE_LAYER)
+        coast.setProperties(lineColor("#1A1A1A"), lineWidth(1.2f), lineOpacity(0.85f))
+        style.addLayerAbove(coast, SATELLITE_LAYER)
+        coast.maxZoom = SATELLITE_HIDE_ABOVE
+    }
 
     // Capped, or above zoom 7 RainViewer serves its "Zoom Level Not Supported" picture instead of
     // weather -- see Rain.RADAR_MAX_ZOOM. Capped, the zoom-7 tile is stretched instead, so rain
@@ -1231,6 +1278,8 @@ private fun showRain(style: Style, tiles: Rain.Tiles) {
 private fun removeRain(style: Style) {
     style.getLayer(RAIN_LAYER)?.let { style.removeLayer(it) }
     style.getSource(RAIN_SOURCE)?.let { style.removeSource(it) }
+    // The coastline borrows the base map's own source, so the layer goes and the source stays.
+    style.getLayer(COAST_LAYER)?.let { style.removeLayer(it) }
     style.getLayer(SATELLITE_LAYER)?.let { style.removeLayer(it) }
     style.getSource(SATELLITE_SOURCE)?.let { style.removeSource(it) }
 }
@@ -1450,6 +1499,51 @@ fun SharingNotice(text: String?, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
             )
         }
+    }
+}
+
+// The weather switch. Out of Settings is M's call (2026-11-16); he raised putting it in the top card
+// beside the sharing dot, and this floating circle is the agent's pick of the two, PROVISIONAL until
+// he says which -- moving it into the card is a small change from here. Same white circle, elevation
+// and height as the pill opposite it, so the two read as one row of map controls rather than two
+// unrelated things. Blue while the weather is up, grey while it is not -- the same on/off language
+// the sharing dot already uses in the card above.
+@Composable
+fun WeatherButton(on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    // What a tap will do, not what is on screen: a switch with no label reads as nothing at all to
+    // TalkBack, and the Settings row that used to carry the words is gone.
+    val label = stringResource(if (on) R.string.weather_hide else R.string.weather_show)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(48.dp).semantics { contentDescription = label },
+        shape = CircleShape,
+        color = colors.surfaceContainerLowest,
+        shadowElevation = 3.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            CloudGlyph(if (on) colors.primary else colors.onSurfaceVariant)
+        }
+    }
+}
+
+// Drawn rather than imported: only material-icons-core is on the classpath and it has no cloud, and
+// the app already draws its own glyphs (ExpandGlyph). Three circles for the top and one bar to flatten
+// the base -- the silhouette is what makes it a cloud, so there is nothing else to add.
+@Composable
+fun CloudGlyph(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        drawCircle(color, radius = w * 0.17f, center = Offset(w * 0.30f, h * 0.56f))
+        drawCircle(color, radius = w * 0.23f, center = Offset(w * 0.50f, h * 0.45f))
+        drawCircle(color, radius = w * 0.16f, center = Offset(w * 0.71f, h * 0.57f))
+        drawRoundRect(
+            color,
+            topLeft = Offset(w * 0.13f, h * 0.55f),
+            size = Size(w * 0.74f, h * 0.18f),
+            cornerRadius = CornerRadius(w * 0.09f, w * 0.09f),
+        )
     }
 }
 

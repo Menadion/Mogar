@@ -126,18 +126,11 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                             icon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = colors.primary) },
                             onClick = onGroupRadius,
                         )
-                        Divider()
-                        // Off by default: most of the time there is no rain to draw, and a painted
-                        // map is harder to read than a plain one.
-                        ChoiceRow(
-                            label = stringResource(R.string.rain_overlay),
-                            choices = listOf(
-                                "off" to stringResource(R.string.rain_overlay_off),
-                                "on" to stringResource(R.string.rain_overlay_on),
-                            ),
-                            selected = if (Rain.on) "on" else "off",
-                            onPick = { Rain.set(context, it == "on") },
-                        )
+                        // The weather switch used to be a row here. Out of Settings is M's call
+                        // (2026-11-16); dropping the row rather than keeping it in step with the
+                        // new control is the agent's, and is PROVISIONAL until he says. The reason
+                        // for dropping it: one state shown in two screens is a thing to keep in
+                        // step, for no gain.
                         Divider()
                         UpdateRow()
                         Divider()
