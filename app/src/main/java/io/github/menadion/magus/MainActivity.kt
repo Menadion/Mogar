@@ -1515,28 +1515,45 @@ fun WeatherButton(on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifie
         onClick = onClick,
         modifier = modifier.size(48.dp).semantics { contentDescription = label },
     ) {
-        CloudGlyph(if (on) colors.primary else colors.onSurfaceVariant)
+        WeatherGlyph(if (on) colors.primary else colors.onSurfaceVariant)
     }
 }
 
 // Drawn rather than imported: only material-icons-core is on the classpath and it has no cloud, and
 // the app already draws its own glyphs (ExpandGlyph). Three circles for the top and one bar to flatten
-// the base -- the silhouette is what makes it a cloud, so there is nothing else to add. 26.dp to match
-// the gear it sits next to, since the two are read as a pair.
+// the base, then three slanted strokes falling off it. 26.dp to match the gear it sits next to, since
+// the two are read as a pair.
+//
+// The rain is what makes it a weather icon (M, 2026-11-16): a bare cloud "just feels like some kind
+// of saving feature", which is exactly right -- an outline cloud on its own is the upload glyph every
+// other app uses, and nothing about it says sky. The drops are also the honest picture of what the
+// layer actually draws, which is cloud top plus rain radar. They slant because upright strokes under
+// a cloud read as a barcode; a slant reads as falling.
 @Composable
-fun CloudGlyph(color: Color, modifier: Modifier = Modifier) {
+fun WeatherGlyph(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(26.dp)) {
         val w = size.width
         val h = size.height
-        drawCircle(color, radius = w * 0.17f, center = Offset(w * 0.30f, h * 0.56f))
-        drawCircle(color, radius = w * 0.23f, center = Offset(w * 0.50f, h * 0.45f))
-        drawCircle(color, radius = w * 0.16f, center = Offset(w * 0.71f, h * 0.57f))
+        // The cloud, squeezed into the top two thirds so the rain has somewhere to fall.
+        drawCircle(color, radius = w * 0.155f, center = Offset(w * 0.31f, h * 0.40f))
+        drawCircle(color, radius = w * 0.205f, center = Offset(w * 0.50f, h * 0.31f))
+        drawCircle(color, radius = w * 0.145f, center = Offset(w * 0.70f, h * 0.41f))
         drawRoundRect(
             color,
-            topLeft = Offset(w * 0.13f, h * 0.55f),
-            size = Size(w * 0.74f, h * 0.18f),
-            cornerRadius = CornerRadius(w * 0.09f, w * 0.09f),
+            topLeft = Offset(w * 0.155f, h * 0.39f),
+            size = Size(w * 0.69f, h * 0.17f),
+            cornerRadius = CornerRadius(w * 0.085f, w * 0.085f),
         )
+        // Three drops under it. Round caps, or at this size the ends read as cut wire.
+        for (x in listOf(0.34f, 0.52f, 0.70f)) {
+            drawLine(
+                color,
+                start = Offset(w * (x + 0.05f), h * 0.68f),
+                end = Offset(w * (x - 0.05f), h * 0.93f),
+                strokeWidth = 2.2.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
     }
 }
 
