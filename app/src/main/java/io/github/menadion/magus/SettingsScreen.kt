@@ -126,11 +126,10 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                             icon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = colors.primary) },
                             onClick = onGroupRadius,
                         )
-                        // The weather switch used to be a row here. Out of Settings is M's call
-                        // (2026-11-16); dropping the row rather than keeping it in step with the
-                        // new control is the agent's, and is PROVISIONAL until he says. The reason
-                        // for dropping it: one state shown in two screens is a thing to keep in
-                        // step, for no gain.
+                        // The weather switch used to be a row here. It is in the top card now and
+                        // the row is gone rather than kept in step with it -- both M's call
+                        // (2026-11-16). One state shown in two screens is upkeep for no gain, and
+                        // the control it would mirror is one tap away on the map behind this page.
                         Divider()
                         UpdateRow()
                         Divider()

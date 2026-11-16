@@ -54,7 +54,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -567,30 +566,21 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                         }
                     },
                     needsAttention = Updates.newer != null || !KeepRunning.allDone,
+                    weatherOn = Rain.on,
+                    onWeather = { Rain.set(context, !Rain.on) },
                     onSettings = { showSettings = true },
                     onFamily = { showFamilyPage = true },
                 )
             }
-            // One row under the card: Show everyone comes and goes on the left, the weather
-            // switch stays put on the right. Opposite ends so neither moves when the other appears.
-            // The weather switch's place here is PROVISIONAL -- see WeatherButton.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, top = 12.dp, end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AnimatedVisibility(visible = zoomedIn) {
-                    ShowEveryoneButton(
-                        onClick = {
-                            selectedUid = null
-                            zoomedIn = false
-                            fitRequest++
-                        },
-                    )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                WeatherButton(on = Rain.on, onClick = { Rain.set(context, !Rain.on) })
+            AnimatedVisibility(visible = zoomedIn) {
+                ShowEveryoneButton(
+                    onClick = {
+                        selectedUid = null
+                        zoomedIn = false
+                        fitRequest++
+                    },
+                    modifier = Modifier.padding(start = 12.dp, top = 12.dp),
+                )
             }
         }
 
@@ -1356,16 +1346,20 @@ private fun showFamily(
     style.getSourceAs<GeoJsonSource>(FAMILY_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(single + crowds))
 }
 
-// The floating top card, one row: family name and code on the left, the compact Sharing pill and
-// the gear on the right. M's change from the handoff's two-row card (2026-09-25): it took too much map.
+// The floating top card, one row: family name and code on the left, then the Sharing pill, the
+// weather switch and the gear. M's change from the handoff's two-row card (2026-09-25): it took too
+// much map. The weather switch joined the three on the right on 2026-11-16, also his call -- there
+// is room in the bar, and a control floating loose on the map "just feels off".
 @Composable
 fun FamilyStrip(
     code: String,
     familyName: String?,
     memberCount: Int,
     sharing: Boolean,
+    weatherOn: Boolean,
     needsAttention: Boolean,
     onToggle: () -> Unit,
+    onWeather: () -> Unit,
     onSettings: () -> Unit,
     onFamily: () -> Unit,
 ) {
@@ -1413,6 +1407,9 @@ fun FamilyStrip(
                     .background(colors.outlineVariant),
             )
             SharingDot(sharing = sharing, onToggle = onToggle)
+            // Between the two on purpose: sharing stays first because it is the one that matters,
+            // and the gear stays last because that is where a gear goes and it carries the badge.
+            WeatherButton(on = weatherOn, onClick = onWeather)
             IconButton(onClick = onSettings, modifier = Modifier.size(48.dp)) {
                 Box {
                     Icon(
@@ -1502,37 +1499,33 @@ fun SharingNotice(text: String?, modifier: Modifier = Modifier) {
     }
 }
 
-// The weather switch. Out of Settings is M's call (2026-11-16); he raised putting it in the top card
-// beside the sharing dot, and this floating circle is the agent's pick of the two, PROVISIONAL until
-// he says which -- moving it into the card is a small change from here. Same white circle, elevation
-// and height as the pill opposite it, so the two read as one row of map controls rather than two
-// unrelated things. Blue while the weather is up, grey while it is not -- the same on/off language
-// the sharing dot already uses in the card above.
+// The weather switch, in the top card beside the sharing pill and the gear (M, 2026-11-16). It was
+// briefly a floating circle on the map and he moved it here: there is room in the bar, and loose on
+// the map it "just feels off". Drawn like the gear and not like the sharing pill -- a bare glyph,
+// no filled disc -- deliberately: a second coloured circle would compete with the one control in
+// this card that has to be readable without looking, which is whether the phone is still sharing.
+// Blue while the weather is up, grey while it is not, the same on/off language as its neighbour.
 @Composable
 fun WeatherButton(on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     // What a tap will do, not what is on screen: a switch with no label reads as nothing at all to
-    // TalkBack, and the Settings row that used to carry the words is gone.
+    // TalkBack, and the Settings row that used to carry the words is gone for good (M, 2026-11-16).
     val label = stringResource(if (on) R.string.weather_hide else R.string.weather_show)
-    Surface(
+    IconButton(
         onClick = onClick,
         modifier = modifier.size(48.dp).semantics { contentDescription = label },
-        shape = CircleShape,
-        color = colors.surfaceContainerLowest,
-        shadowElevation = 3.dp,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            CloudGlyph(if (on) colors.primary else colors.onSurfaceVariant)
-        }
+        CloudGlyph(if (on) colors.primary else colors.onSurfaceVariant)
     }
 }
 
 // Drawn rather than imported: only material-icons-core is on the classpath and it has no cloud, and
 // the app already draws its own glyphs (ExpandGlyph). Three circles for the top and one bar to flatten
-// the base -- the silhouette is what makes it a cloud, so there is nothing else to add.
+// the base -- the silhouette is what makes it a cloud, so there is nothing else to add. 26.dp to match
+// the gear it sits next to, since the two are read as a pair.
 @Composable
 fun CloudGlyph(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
+    Canvas(modifier = modifier.size(26.dp)) {
         val w = size.width
         val h = size.height
         drawCircle(color, radius = w * 0.17f, center = Offset(w * 0.30f, h * 0.56f))
