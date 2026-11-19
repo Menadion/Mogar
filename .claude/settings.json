@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PY=$(command -v py || command -v python3 || command -v python); G=\"C:/Users/Menadion/Documents/Obsidian/Engine-Room/.claude/scripts/bash_guard.py\"; [ -n \"$PY\" ] && [ -f \"$G\" ] && \"$PY\" \"$G\" || exit 0",
+            "command": "PY=$(command -v py || command -v python3 || command -v python); G=\"${CLAUDE_PROJECT_DIR}/.claude/scripts/bash_guard.py\"; [ -n \"$PY\" ] && [ -f \"$G\" ] && \"$PY\" \"$G\" || exit 0",
             "shell": "bash",
             "timeout": 5
           }
