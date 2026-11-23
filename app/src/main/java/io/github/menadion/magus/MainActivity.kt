@@ -1545,11 +1545,11 @@ fun WeatherGlyph(color: Color, modifier: Modifier = Modifier) {
             cornerRadius = CornerRadius(w * 0.085f, w * 0.085f),
         )
         // Three drops under it. Round caps, or at this size the ends read as cut wire.
-        for (x in listOf(0.34f, 0.52f, 0.70f)) {
+        for (x in listOf(0.325f, 0.50f, 0.675f)) {
             drawLine(
                 color,
-                start = Offset(w * (x + 0.05f), h * 0.68f),
-                end = Offset(w * (x - 0.05f), h * 0.93f),
+                start = Offset(w * (x - 0.05f), h * 0.68f),
+                end = Offset(w * (x + 0.05f), h * 0.93f),
                 strokeWidth = 2.2.dp.toPx(),
                 cap = StrokeCap.Round,
             )
@@ -1582,3 +1582,6 @@ fun ShowEveryoneButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 }
+// The drops are centred under the cloud (its body runs 0.155 to 0.845, centre 0.50) at an even 0.175
+// apart, and lean `\` (M, 2026-11-23). The first cut sat them 0.02 right of centre and leaned them `/`.
+//
