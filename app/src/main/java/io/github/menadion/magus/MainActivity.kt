@@ -1614,13 +1614,19 @@ fun WeatherGlyph(color: Color, modifier: Modifier = Modifier) {
         )
         // Three drops under it. Round caps, or at this size the ends read as cut wire.
         for (x in listOf(0.325f, 0.50f, 0.675f)) {
-            drawLine(
-                color,
-                start = Offset(w * (x - 0.05f), h * 0.68f),
-                end = Offset(w * (x + 0.05f), h * 0.93f),
-                strokeWidth = 2.2.dp.toPx(),
-                cap = StrokeCap.Round,
-            )
+            // Upright (M, 2026-11-23). The lean was start x - 0.05 to end x + 0.05. The middle drop is
+            // two pieces so the three do not read as a barcode. The gap is wider than it looks: each
+            // round cap runs half a stroke past its end, so 0.733 to 0.877 shows as about 0.06.
+            val pieces = if (x == 0.50f) listOf(0.68f to 0.733f, 0.877f to 0.93f) else listOf(0.68f to 0.93f)
+            for ((top, bottom) in pieces) {
+                drawLine(
+                    color,
+                    start = Offset(w * x, h * top),
+                    end = Offset(w * x, h * bottom),
+                    strokeWidth = 2.2.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+            }
         }
     }
 }
