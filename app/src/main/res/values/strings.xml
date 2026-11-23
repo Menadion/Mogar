@@ -57,6 +57,9 @@
     <string name="group_radius_discard_text">Your change to the group radius will be lost.</string>
     <string name="group_radius_discard">Discard</string>
     <string name="group_radius_keep">Keep editing</string>
+    <string name="setup_leave_title">Leave setup?</string>
+    <string name="setup_leave_text">What you typed will be lost.</string>
+    <string name="setup_leave_stay">Stay</string>
     <string name="weather_show">Show weather</string>
     <string name="weather_hide">Hide weather</string>
     <string name="go_to_group">Go to the group of %1$d people on the map</string>

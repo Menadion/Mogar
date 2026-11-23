@@ -1,5 +1,9 @@
 package io.github.menadion.magus
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.booleanResource
 import androidx.compose.ui.res.stringResource
@@ -70,6 +74,25 @@ fun SetupScreen(onDone: () -> Unit) {
     var mode by rememberSaveable { mutableStateOf(SetupMode.START) } // which choice card is open
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
+
+    // Setup is the root screen, so back has nowhere to step to: it closes the app, and what was typed
+    // goes with it. When there is something to lose, ask first (M, 2026-11-23). The name and phone
+    // start prefilled from what the phone remembers, so only a change to them counts as typing.
+    val startName = remember { name }
+    val startPhone = remember { phone }
+    val typedSomething = familyName.isNotBlank() || code.isNotEmpty() || pairCode.isNotEmpty() ||
+        name != startName || phone != startPhone
+    var confirmLeave by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = typedSomething && !busy) { confirmLeave = true }
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            title = { Text(stringResource(R.string.setup_leave_title)) },
+            text = { Text(stringResource(R.string.setup_leave_text)) },
+            confirmButton = { TextButton(onClick = { (context as? Activity)?.finish() }) { Text(stringResource(R.string.leave)) } },
+            dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text(stringResource(R.string.setup_leave_stay)) } },
+        )
+    }
 
     fun attempt(action: suspend () -> Unit) {
         busy = true
