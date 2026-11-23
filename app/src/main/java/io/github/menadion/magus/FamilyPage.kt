@@ -527,7 +527,8 @@ private fun NameDialog(
             Column {
                 OutlinedTextField(
                     value = value,
-                    onValueChange = { value = it },
+                    // This box also renames a person; only the family's name has a cap.
+                    onValueChange = { value = if (familyWord != null) Family.capFamilyName(value, it) else it },
                     label = { Text(title) },
                     singleLine = true,
                     prefix = if (wordFirst) familyWord?.let { { Text("$it ") } } else null,

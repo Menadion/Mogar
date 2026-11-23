@@ -144,7 +144,7 @@ fun SetupScreen(onDone: () -> Unit) {
                 ) {
                     OutlinedTextField(
                         value = familyName,
-                        onValueChange = { familyName = it },
+                        onValueChange = { familyName = Family.capFamilyName(familyName, it) },
                         label = { Text(stringResource(R.string.family_name)) },
                         prefix = if (booleanResource(R.bool.family_word_first)) { { Text(stringResource(R.string.family) + " ") } } else null,
                         suffix = if (booleanResource(R.bool.family_word_first)) null else { { Text(stringResource(R.string.family)) } },

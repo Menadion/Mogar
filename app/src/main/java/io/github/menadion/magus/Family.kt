@@ -57,6 +57,16 @@ object Family {
     fun savedName(context: Context): String? = prefs(context).getString("name", null)
     fun savedCode(context: Context): String? = prefs(context).getString("familyCode", null)
     fun savedFamilyName(context: Context): String? = prefs(context).getString("familyName", null)
+
+    // The longest a family name may be when typed (M, 2026-11-23; measured basis in the Build Log:
+    // about 17 characters fit a line on a 360dp phone once " Family" is added).
+    const val FAMILY_NAME_MAX = 16
+
+    // Typing past the cap does nothing, silently. The limit is the cap or the name's current length,
+    // whichever is longer, so a name already over the cap (created before the cap existed) can still be
+    // shortened by deleting but never grown, and is never cut behind the user's back.
+    fun capFamilyName(previous: String, typed: String): String =
+        typed.take(maxOf(FAMILY_NAME_MAX, previous.length))
     fun savedPhone(context: Context): String? = prefs(context).getString("phone", null)
     // The sharing switch lives here and nowhere else, so every screen and the phone's own location
     // switch agree on it. Read from a composable, it makes that screen follow a change made
