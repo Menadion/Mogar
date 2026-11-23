@@ -1638,10 +1638,16 @@ fun WeatherGlyph(color: Color, modifier: Modifier = Modifier) {
         )
         // Three drops under it. Round caps, or at this size the ends read as cut wire.
         for (x in listOf(0.325f, 0.50f, 0.675f)) {
-            // Upright (M, 2026-11-23). The lean was start x - 0.05 to end x + 0.05. The middle drop is
-            // two pieces so the three do not read as a barcode. The gap is wider than it looks: each
-            // round cap runs half a stroke past its end, so 0.733 to 0.877 shows as about 0.06.
-            val pieces = if (x == 0.50f) listOf(0.68f to 0.733f, 0.877f to 0.93f) else listOf(0.68f to 0.93f)
+            // Upright (M, 2026-11-23). The lean was start x - 0.05 to end x + 0.05. Every drop is two
+            // pieces, split at different heights so the three do not read as a barcode (M's own
+            // sketch): the outer two are a dot over a long stroke, the middle one a long stroke over
+            // a dot. A zero-length line with a round cap is a dot. Each cap runs half a stroke past
+            // its end, so a gap of 0.14 between ends shows as about 0.055.
+            val pieces = if (x == 0.50f) {
+                listOf(0.680f to 0.790f, 0.929f to 0.930f)
+            } else {
+                listOf(0.680f to 0.682f, 0.820f to 0.930f)
+            }
             for ((top, bottom) in pieces) {
                 drawLine(
                     color,
