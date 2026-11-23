@@ -76,6 +76,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -418,6 +423,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             selectedUid = selectedUid,
             paddingTop = topHeight,
             paddingBottom = { bottomHeight },
+            onNotice = { notice = it },
             fitRequest = fitRequest,
             locationAsk = locationAsk,
             // What the phone answered about reporting a position, either when Mogar opened or
@@ -707,6 +713,7 @@ fun FamilyMap(
     onGroupPick: (String) -> Unit, // an avatar in the bubble was tapped
     onZoomedIn: () -> Unit, // the camera was sent in on a group, so Show everyone belongs on screen
     onRested: (LatLng) -> Unit, // where the camera stopped, for the group radius window's fallback
+    onNotice: (String) -> Unit, // a line for the band across the map, same one the sharing switch uses
     edgeMarkers: @Composable (openGroup: (List<String>) -> Unit) -> Unit, // drawn over the map and under a group's bubble
 ) {
     val context = LocalContext.current
@@ -807,16 +814,57 @@ fun FamilyMap(
     // Rain on the map, refreshed for as long as it is switched on. The layer goes under the
     // family dots so nobody is painted over, and is taken out again when switched off so its
     // tiles stop being held. A failed fetch leaves whatever frame is already up and tries again.
+    //
+    // Three things belong to the FIRST attempt after switching on, and to no later one (M, 2026-11-23):
+    // the dim over the map while it loads, the message when it could not, and the message when the
+    // map is looking somewhere no weather picture reaches. A retry or an 8-minute refresh is silent.
+    // The dim ends when the map reports a frame with the weather's tiles on it, or after ten seconds,
+    // whichever comes first; a slow link past that just gets the picture later, unannounced.
+    //
+    // The whole loop sits inside repeatOnLifecycle, so a backgrounded Mogar stops asking RainViewer
+    // and takes one fresh frame on coming back. Before this it polled for as long as the process lived.
+    var weatherLoading by remember { mutableStateOf(false) }
+    var renderedFully by remember { mutableIntStateOf(0) } // goes up on every fully drawn frame
+    val currentOnNotice by rememberUpdatedState(onNotice)
     LaunchedEffect(style, Rain.on) {
         val s = style ?: return@LaunchedEffect
         if (!Rain.on) {
             removeRain(s)
+            weatherLoading = false
             return@LaunchedEffect
         }
-        while (true) {
-            val tiles = withContext(Dispatchers.IO) { runCatching { Rain.latest(context) }.getOrNull() }
-            if (tiles != null) showRain(s, tiles)
-            delay(Rain.REFRESH_MS)
+        var firstAttempt = true
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                while (true) {
+                    val loud = firstAttempt
+                    firstAttempt = false
+                    val cap = if (loud) {
+                        weatherLoading = true
+                        launch { delay(Rain.LOAD_CAP_MS); weatherLoading = false }
+                    } else null
+
+                    val tiles = withContext(Dispatchers.IO) { runCatching { Rain.latest(context) }.getOrNull() }
+                    when {
+                        tiles == null -> if (loud) currentOnNotice(context.getString(R.string.weather_failed))
+                        s.getLayer(RAIN_LAYER) == null -> {
+                            val seen = renderedFully
+                            showRain(s, tiles)
+                            if (loud) withTimeoutOrNull(Rain.LOAD_CAP_MS) { snapshotFlow { renderedFully }.first { it != seen } }
+                        }
+                        else -> swapRadar(s, tiles)
+                    }
+                    cap?.cancel()
+                    weatherLoading = false
+                    if (loud && tiles != null) {
+                        val lng = map?.cameraPosition?.target?.longitude
+                        if (lng != null && !Rain.satelliteCovers(lng)) currentOnNotice(context.getString(R.string.weather_no_coverage))
+                    }
+                    delay(Rain.REFRESH_MS)
+                }
+            } finally {
+                weatherLoading = false
+            }
         }
     }
 
@@ -833,7 +881,10 @@ fun FamilyMap(
             // fully is the point: this fires on partial renders too, and hiding on the first of
             // them would put the indicator away while the map was still half grey.
             addOnDidFinishRenderingMapListener { fully ->
-                if (fully) loadState.value = MapLoadState.DONE
+                if (fully) {
+                    loadState.value = MapLoadState.DONE
+                    renderedFully++
+                }
             }
             addOnDidFailLoadingMapListener { loadState.value = MapLoadState.FAILED }
             getMapAsync { m ->
@@ -1037,6 +1088,7 @@ fun FamilyMap(
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
         MapLoadingOverlay(loadState.value)
+        WeatherScrim(weatherLoading)
         edgeMarkers { uids ->
             currentOnDotTapped(null) // a card that was open makes way
             currentOnGroupTapped(uids)
@@ -1211,8 +1263,9 @@ private fun drawMe(context: Context, style: Style, location: Location, sharing: 
     style.getSourceAs<GeoJsonSource>(ME_SOURCE)?.setGeoJson(me)
 }
 
-// Swaps in a radar frame. The source is rebuilt rather than updated, because a frame is a new
-// tile URL and not new data at the same one.
+// Puts the whole weather picture on the map: satellite, coastline, radar. Called when it is switched
+// on. The 8-minute refresh after that goes through swapRadar and leaves the satellite alone, since a
+// satellite URL says "default" and never changes.
 private fun showRain(style: Style, tiles: Rain.Tiles) {
     removeRain(style)
 
@@ -1249,6 +1302,18 @@ private fun showRain(style: Style, tiles: Rain.Tiles) {
         coast.maxZoom = SATELLITE_HIDE_ABOVE
     }
 
+    addRadar(style, tiles)
+}
+
+// A new radar frame is a new tile URL, not new data at the same one, so the source is rebuilt
+// rather than updated. Only the radar: the satellite and the coastline stay where they are.
+private fun swapRadar(style: Style, tiles: Rain.Tiles) {
+    style.getLayer(RAIN_LAYER)?.let { style.removeLayer(it) }
+    style.getSource(RAIN_SOURCE)?.let { style.removeSource(it) }
+    addRadar(style, tiles)
+}
+
+private fun addRadar(style: Style, tiles: Rain.Tiles) {
     // Capped, or above zoom 7 RainViewer serves its "Zoom Level Not Supported" picture instead of
     // weather -- see Rain.RADAR_MAX_ZOOM. Capped, the zoom-7 tile is stretched instead, so rain
     // still shows on a street-level map, in kilometre-wide blocks.
@@ -1524,6 +1589,9 @@ fun WeatherButton(on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifie
 // the base, then three slanted strokes falling off it. 26.dp to match the gear it sits next to, since
 // the two are read as a pair.
 //
+// The drops are centred under the cloud (its body runs 0.155 to 0.845, centre 0.50) at an even 0.175
+// apart, and lean `\` (M, 2026-11-23). The first cut sat them 0.02 right of centre and leaned them `/`.
+//
 // The rain is what makes it a weather icon (M, 2026-11-16): a bare cloud "just feels like some kind
 // of saving feature", which is exactly right -- an outline cloud on its own is the upload glyph every
 // other app uses, and nothing about it says sky. The drops are also the honest picture of what the
@@ -1582,6 +1650,3 @@ fun ShowEveryoneButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 }
-// The drops are centred under the cloud (its body runs 0.155 to 0.845, centre 0.50) at an even 0.175
-// apart, and lean `\` (M, 2026-11-23). The first cut sat them 0.02 right of centre and leaned them `/`.
-//

@@ -68,6 +68,21 @@ object Rain {
     // A frame covers ten minutes. Asking a little sooner means a stale one is never left up.
     const val REFRESH_MS = 8L * 60 * 1000
 
+    // The dim over the map while weather loads gives up after this long (M, 2026-11-23, down from
+    // the 15 s first floated: on a slow link it is the map the family is looking at that is dimmed).
+    const val LOAD_CAP_MS = 10_000L
+
+    // Himawari-9's view of the Earth, measured 2026-11-23 by asking GIBS for tiles along the equator
+    // and comparing sizes: a tile with picture is 17 KB or more, one with nothing is 334 or 1189 bytes.
+    // Real picture runs from about 60E eastward across the date line to about 140W; 0 to 56E and
+    // 135W to 90W (everything from Libya to the Americas) came back empty. These are the edges nudged
+    // inward to where the picture is solid. Used for one thing: the message that says weather may
+    // not show. NOTE: RainViewer's radar reaches places this does not (Europe, the US), so the
+    // message over-claims there; the family is in the Philippines and Libya, where it holds.
+    private const val SATELLITE_WEST_EDGE_E = 65.0
+    private const val SATELLITE_EAST_EDGE_W = -140.0
+    fun satelliteCovers(lng: Double) = lng >= SATELLITE_WEST_EDGE_E || lng <= SATELLITE_EAST_EDGE_W
+
     var on by mutableStateOf(false)
         private set
 

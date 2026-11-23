@@ -81,6 +81,21 @@ fun MapLoadingOverlay(state: MapLoadState, modifier: Modifier = Modifier) {
     }
 }
 
+// The dim over the map while the weather loads (M, 2026-11-23). Dim only: nothing here takes a touch,
+// so the map still pans and people can still be tapped, and the weather button sits in the top card
+// above this, so tapping it again cancels the load. Same ripple as the map's first load, in white.
+@Composable
+fun WeatherScrim(loading: Boolean, modifier: Modifier = Modifier) {
+    if (!loading) return
+    Column(
+        modifier = modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.28f)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (reduceMotion()) StillMark(Color.White, crossed = false) else Ripple(Color.White)
+    }
+}
+
 // The logo in motion: the pebble sits still and its ripple spreads, which is the mark's own
 // picture and also what the app is doing, looking for where everyone is. Three strokes scaled on
 // the GPU, which is as cheap as this can be drawn; the phone showing it is the one already
