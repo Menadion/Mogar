@@ -824,13 +824,15 @@ fun FamilyMap(
     }
     LaunchedEffect(map, members, groups) { map?.let { project(it) } }
 
-    // Rain on the map, refreshed for as long as it is switched on. The layer goes under the
-    // family dots so nobody is painted over, and is taken out again when switched off so its
-    // tiles stop being held. A failed fetch leaves whatever frame is already up and tries again.
+    // Rain on the map. The layer goes under the family dots so nobody is painted over, and is taken
+    // out again when switched off so its tiles stop being held. It is fetched on switch-on and on
+    // each return to the app, then rechecked once an hour while Mogar stays on screen (M, 2026-11-23:
+    // nobody watches a weather picture update, so no short polling). A failed fetch leaves whatever
+    // frame is already up and waits for the next foreground or the hourly timer.
     //
     // Three things belong to the FIRST attempt after switching on, and to no later one (M, 2026-11-23):
     // the dim over the map while it loads, the message when it could not, and the message when the
-    // map is looking somewhere no weather picture reaches. A retry or an 8-minute refresh is silent.
+    // map is looking somewhere no weather picture reaches. A return to the app or a recheck is silent.
     // The dim ends when the map reports a frame with the weather's tiles on it, or after ten seconds,
     // whichever comes first; a slow link past that just gets the picture later, unannounced.
     //
@@ -847,6 +849,7 @@ fun FamilyMap(
             return@LaunchedEffect
         }
         var firstAttempt = true
+        var shownSatellite: String? = null // the satellite URL on the map now
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
                 while (true) {
@@ -860,9 +863,12 @@ fun FamilyMap(
                     val tiles = withContext(Dispatchers.IO) { runCatching { Rain.latest(context) }.getOrNull() }
                     when {
                         tiles == null -> if (loud) currentOnNotice(context.getString(R.string.weather_failed))
-                        s.getLayer(RAIN_LAYER) == null -> {
+                        // A new satellite frame is a new URL, so the whole picture is rebuilt: the old
+                        // frame's tiles go with the old source and no seam is left between frames.
+                        s.getLayer(RAIN_LAYER) == null || tiles.satellite != shownSatellite -> {
                             val seen = renderedFully
                             showRain(s, tiles)
+                            shownSatellite = tiles.satellite
                             if (loud) withTimeoutOrNull(Rain.LOAD_CAP_MS) { snapshotFlow { renderedFully }.first { it != seen } }
                         }
                         else -> swapRadar(s, tiles)
@@ -873,7 +879,7 @@ fun FamilyMap(
                         val lng = map?.cameraPosition?.target?.longitude
                         if (lng != null && !Rain.satelliteCovers(lng)) currentOnNotice(context.getString(R.string.weather_no_coverage))
                     }
-                    delay(Rain.REFRESH_MS)
+                    delay(Rain.RECHECK_MS)
                 }
             } finally {
                 weatherLoading = false
@@ -1288,8 +1294,8 @@ private fun drawMe(context: Context, style: Style, location: Location, sharing: 
 }
 
 // Puts the whole weather picture on the map: satellite, coastline, radar. Called when it is switched
-// on. The 8-minute refresh after that goes through swapRadar and leaves the satellite alone, since a
-// satellite URL says "default" and never changes.
+// on, and again whenever the satellite frame has moved on (its URL carries the frame time). A recheck
+// that finds the same satellite frame goes through swapRadar and leaves the satellite alone.
 private fun showRain(style: Style, tiles: Rain.Tiles) {
     removeRain(style)
 

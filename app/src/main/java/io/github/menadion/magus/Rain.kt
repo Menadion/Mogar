@@ -31,16 +31,76 @@ import java.net.URL
 object Rain {
     private const val CATALOGUE = "https://api.rainviewer.com/public/weather-maps.json"
 
-    // Himawari band 13, newest frame. GIBS takes the literal word "default" where a timestamp
-    // would go and answers with the latest frame it holds, so nothing here needs a clock, a
-    // timestamp format, or a guess at how far behind the satellite is running (measured
-    // 2026-11-16: about 38 minutes, on a 10-minute cadence).
+    // Himawari band 13. GIBS takes the literal word "default" where a timestamp would go and
+    // answers with the newest frame it holds -- but that URL never changes, so MapLibre keeps
+    // every tile it already has and fetches only the new ones. Zoom or pan after the satellite has
+    // published and the screen holds tiles from two different frames, side by side, with a seam
+    // between them (M's phone, 2026-11-23). So the URL carries an explicit frame time instead
+    // (see latestSatelliteUrl), and "default" is only the fallback when that cannot be worked out.
     //
     // GIBS puts y before x in the path, which is not the order the radar host uses. MapLibre fills
     // the placeholders by name so the order does not matter -- do not "correct" it.
-    const val SATELLITE = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/" +
-        "Himawari_AHI_Band13_Clean_Infrared/default/default/GoogleMapsCompatible_Level6/" +
-        "{z}/{y}/{x}.png"
+    private const val SATELLITE_PREFIX = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/" +
+        "Himawari_AHI_Band13_Clean_Infrared/default/"
+    private const val SATELLITE_SUFFIX = "/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png"
+    const val SATELLITE = SATELLITE_PREFIX + "default" + SATELLITE_SUFFIX
+
+    // Frames come on a 10-minute grid and an off-grid time snaps down to the slot before it.
+    // A slot that is not published yet is HTTP 404. Measured 2026-11-23: the newest published
+    // slot ran 16 to 36 minutes behind the clock (24 at the last probe).
+    const val SLOT_MS = 10L * 60 * 1000
+
+    // How many slots back from "now" the probe will walk before giving up and using "default".
+    // Six is an hour, past anything measured.
+    const val SLOT_WALK = 6
+
+    // One tile at zoom 0, the whole world in a single small PNG: asked with HEAD, so nothing is
+    // downloaded, only whether this slot exists.
+    private const val PROBE_TILE = "/GoogleMapsCompatible_Level6/0/0/0.png"
+    private const val PROBE_TIMEOUT_MS = 4_000
+
+    private val SLOT_FORMAT: java.time.format.DateTimeFormatter =
+        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+            .withZone(java.time.ZoneOffset.UTC)
+
+    // The slots to try, newest first, starting one slot back from the clock: the satellite has
+    // never been less than 16 minutes behind, so the slot the clock is in is never published.
+    fun slotCandidates(nowMs: Long): List<Long> {
+        val newest = Math.floorDiv(nowMs, SLOT_MS) * SLOT_MS - SLOT_MS
+        return List(SLOT_WALK) { newest - it * SLOT_MS }
+    }
+
+    fun slotTime(slotMs: Long): String = SLOT_FORMAT.format(java.time.Instant.ofEpochMilli(slotMs))
+
+    fun satelliteUrl(slotMs: Long): String = SATELLITE_PREFIX + slotTime(slotMs) + SATELLITE_SUFFIX
+
+    // The tile template for the newest satellite frame GIBS has published, or the "default" one
+    // when that cannot be established: a probe that errors or times out, a status other than 200
+    // or 404, or six 404s in a row. Falling back is the old behaviour, not a failure. Blocking, so
+    // call it off the main thread.
+    fun latestSatelliteUrl(nowMs: Long = System.currentTimeMillis()): String {
+        for (slot in slotCandidates(nowMs)) {
+            val code = probe(SATELLITE_PREFIX + slotTime(slot) + PROBE_TILE) ?: return SATELLITE
+            if (code == 200) return satelliteUrl(slot)
+            if (code != 404) return SATELLITE
+        }
+        return SATELLITE
+    }
+
+    private fun probe(url: String): Int? = try {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "HEAD"
+            connectTimeout = PROBE_TIMEOUT_MS
+            readTimeout = PROBE_TIMEOUT_MS
+        }
+        try {
+            connection.responseCode
+        } finally {
+            connection.disconnect()
+        }
+    } catch (e: java.io.IOException) {
+        null
+    }
 
     // The ceiling is zoom 6 -- zoom 7 is a flat HTTP 400 -- so the source is told, and MapLibre
     // stretches the last real tiles instead of asking for one that does not exist.
@@ -65,8 +125,11 @@ object Rain {
     private const val OPTIONS = "1_1"
     private const val TILE_SIZE = 256
 
-    // A frame covers ten minutes. Asking a little sooner means a stale one is never left up.
-    const val REFRESH_MS = 8L * 60 * 1000
+    // How long the picture stays up before it is asked for again, counted only while Mogar is on
+    // screen with weather on (M, 2026-11-23). Nobody stares at a weather picture waiting for it to
+    // move: it is fetched when switched on and on each return to the app, and this timer covers the
+    // phone left open on the map. It was 8 minutes, polling for a change that did not matter.
+    const val RECHECK_MS = 60L * 60 * 1000
 
     // The dim over the map while weather loads gives up after this long (M, 2026-11-23, down from
     // the 15 s first floated: on a slow link it is the map the family is looking at that is dimmed).
@@ -95,8 +158,8 @@ object Rain {
         context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).edit().putBoolean(KEY, value).apply()
     }
 
-    // The newest radar frame, as a tile template MapLibre can take, paired with the satellite,
-    // which is a fixed URL and needs no asking. Null when the catalogue cannot be reached or
+    // The newest radar frame, as a tile template MapLibre can take, paired with the newest
+    // satellite frame (see latestSatelliteUrl). Null when the catalogue cannot be reached or
     // carries no frames. Blocking, so call it off the main thread.
     fun latest(context: Context): Tiles? {
         val connection = (URL(CATALOGUE).openConnection() as HttpURLConnection).apply {
@@ -111,7 +174,10 @@ object Rain {
             val past = json.getJSONObject("radar").optJSONArray("past") ?: return null
             if (past.length() == 0) return null
             val path = past.getJSONObject(past.length() - 1).getString("path")
-            return Tiles(radar = "$host$path/$TILE_SIZE/{z}/{x}/{y}/$SCHEME/$OPTIONS.png")
+            return Tiles(
+                radar = "$host$path/$TILE_SIZE/{z}/{x}/{y}/$SCHEME/$OPTIONS.png",
+                satellite = latestSatelliteUrl(),
+            )
         } finally {
             connection.disconnect()
         }
