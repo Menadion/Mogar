@@ -181,6 +181,10 @@ private const val WATER_SOURCE_LAYER = "water"
 // only one of the two still saying anything useful, so it comes off and the plain map returns.
 private const val SATELLITE_HIDE_ABOVE = 10.0f
 
+// Where the camera goes when weather is switched on from closer in (M, 2026-11-23): one level under
+// the point where the satellite hides, so the picture is on screen and not at its most stretched.
+private const val WEATHER_ZOOM = 9.0
+
 // Two dots touch when their centres are this close, in dp: one dot's width.
 private const val DOT_TOUCH_DP = 38f
 
@@ -270,6 +274,10 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     // where it is (M's call, 2026-09-26). Each tap bumps fitRequest, which the map answers.
     var zoomedIn by remember { mutableStateOf(false) }
     var fitRequest by remember { mutableIntStateOf(0) }
+    // Bumped each time the weather switch goes ON, so the map can pull in from a zoom where the
+    // satellite is hidden (see WEATHER_ZOOM). Only a tap bumps it: opening the app with weather
+    // already on leaves the camera alone.
+    var weatherZoomAsk by remember { mutableIntStateOf(0) }
     // Saveable so a rotation, or the system reclaiming Mogar while they are in the phone's own
     // settings pages, brings them back to the same screen rather than the map.
     var showKeepRunning by rememberSaveable { mutableStateOf(false) }
@@ -425,6 +433,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
             paddingBottom = { bottomHeight },
             onNotice = { notice = it },
             fitRequest = fitRequest,
+            weatherZoomAsk = weatherZoomAsk,
             locationAsk = locationAsk,
             // What the phone answered about reporting a position, either when Mogar opened or
             // because the pill was tapped on. This is the one place the two switches are tied
@@ -573,7 +582,10 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                     },
                     needsAttention = Updates.newer != null || !KeepRunning.allDone,
                     weatherOn = Rain.on,
-                    onWeather = { Rain.set(context, !Rain.on) },
+                    onWeather = {
+                        if (!Rain.on) weatherZoomAsk++
+                        Rain.set(context, !Rain.on)
+                    },
                     onSettings = { showSettings = true },
                     onFamily = { showFamilyPage = true },
                 )
@@ -706,6 +718,7 @@ fun FamilyMap(
     paddingTop: Int,
     paddingBottom: () -> Int, // read when the camera moves, so a panel that just opened counts
     fitRequest: Int, // goes up by one each time Show everyone is tapped
+    weatherZoomAsk: Int, // goes up by one each time weather is switched on
     locationAsk: Int, // goes up by one each time the sharing pill asks the phone again
     onLocationSettled: (allowed: Boolean) -> Unit, // true when this phone will report a position
     onDotTapped: (String?) -> Unit,
@@ -1047,6 +1060,17 @@ fun FamilyMap(
             ),
             700,
         )
+    }
+
+    // Switching weather on from closer than WEATHER_ZOOM would show nothing (the satellite is hidden
+    // above SATELLITE_HIDE_ABOVE), so the camera pulls out to WEATHER_ZOOM, keeping where it is
+    // looking. Already at or past that, it stays put.
+    LaunchedEffect(map, weatherZoomAsk) {
+        val m = map ?: return@LaunchedEffect
+        if (weatherZoomAsk == 0) return@LaunchedEffect
+        if (m.cameraPosition.zoom > WEATHER_ZOOM) {
+            m.animateCamera(CameraUpdateFactory.zoomTo(WEATHER_ZOOM), 700)
+        }
     }
 
     LaunchedEffect(map, fitRequest) {
