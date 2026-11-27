@@ -6,7 +6,8 @@ import android.content.Intent
 import android.os.Build
 
 // After the phone restarts, or Mogar is updated, gets background sharing going again if it was on.
-// After an update it also deletes the downloaded file the update came from.
+// After an update it also deletes the downloaded file the update came from. Both also re-arm the
+// sharing reminder alarm (SharingReminders.run), whether or not sharing was on.
 //
 // On Android 11 and up a location service started from here runs but gets no location at all
 // (Android's while-in-use rule: a boot or update broadcast is not one of its exemptions, and neither
@@ -17,6 +18,10 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) Updates.cleanUp(context)
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        // Android drops every alarm on a restart, and an update can too. Before the check below,
+        // because a reminder matters most to someone whose sharing is off: run() sets the next
+        // alarm and posts any reminder that fell due while the phone was off (up to 12 hours back).
+        SharingReminders.run(context)
         if (!ShareService.wanted(context)) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             ShareService.showStoppedNotice(context)
