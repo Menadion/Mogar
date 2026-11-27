@@ -290,6 +290,9 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
     var showKeepRunning by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showGroupRadius by rememberSaveable { mutableStateOf(false) }
+    var showReminders by rememberSaveable { mutableStateOf(false) }
+    // Re-read each time the reminders page closes, so Settings shows the new count.
+    val reminderCount = remember(showReminders) { SharingReminders.rules(context).size }
     // Where the main map is looking, for the radius window when this phone has no position to show.
     var lookingAt by remember { mutableStateOf(PHILIPPINES) }
     var showFamilyPage by rememberSaveable { mutableStateOf(false) }
@@ -653,7 +656,14 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                 onKeepRunning = { showKeepRunning = true },
                 onTutorial = { showTutorial = true },
                 onGroupRadius = { showGroupRadius = true },
+                reminderCount = reminderCount,
+                onReminders = { showReminders = true },
             )
+        }
+
+        if (showReminders) {
+            BackHandler { showReminders = false }
+            RemindersScreen(onBack = { showReminders = false })
         }
 
         if (showGroupRadius) {

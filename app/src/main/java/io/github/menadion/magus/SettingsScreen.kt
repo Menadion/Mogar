@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
@@ -61,7 +62,7 @@ import kotlinx.coroutines.launch
 // Settings, opened by the gear: the app's own rows, and the version at the bottom. Everything about
 // the family and you lives on the family page (FamilyPage), opened from the family name on the map.
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: () -> Unit, onGroupRadius: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: () -> Unit, onGroupRadius: () -> Unit, reminderCount: Int, onReminders: () -> Unit) {
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     var showAbout by remember { mutableStateOf(false) }
@@ -125,6 +126,14 @@ fun SettingsScreen(onBack: () -> Unit, onKeepRunning: () -> Unit, onTutorial: ()
                             },
                             icon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = colors.primary) },
                             onClick = onGroupRadius,
+                        )
+                        Divider()
+                        NavRow(
+                            title = stringResource(R.string.sharing_reminders),
+                            subtitle = if (reminderCount == 0) stringResource(R.string.sharing_reminders_none)
+                            else stringResource(R.string.sharing_reminders_count, reminderCount),
+                            icon = { Icon(Icons.Default.Notifications, contentDescription = null, tint = colors.primary) },
+                            onClick = onReminders,
                         )
                         // The weather switch used to be a row here. It is in the top card now and
                         // the row is gone rather than kept in step with it -- both M's call

@@ -168,6 +168,13 @@ class SharingRemindersTest {
         assertEquals(listOf(1, 3), SharingReminders.decode(saved).map { it.id })
     }
 
+    @Test fun aNewRuleGetsAnIdNoSavedRuleUses() {
+        assertEquals(1, SharingReminders.nextId(emptyList()))
+        // Ids 1 and 5 are taken, so the next is 6, not the hole at 2: a deleted rule's id is not
+        // handed to a new one while a higher one is still alive.
+        assertEquals(6, SharingReminders.nextId(listOf(rule(1, "10:00", every), rule(5, "11:00", every))))
+    }
+
     @Test fun aNonexistentTimeOfDayIsRejected() {
         assertThrows(IllegalArgumentException::class.java) { ReminderRule(1, 24, 0, every, ReminderAction.ON) }
         assertThrows(IllegalArgumentException::class.java) { ReminderRule(1, 10, 60, every, ReminderAction.ON) }

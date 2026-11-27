@@ -169,6 +169,10 @@ object SharingReminders {
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
 
+    // An id no saved rule uses. Never reused while the rule lives, so editing one cannot be mistaken
+    // for another; ids are only compared, never shown.
+    fun nextId(rules: List<ReminderRule>): Int = (rules.maxOfOrNull { it.id } ?: 0) + 1
+
     fun rules(context: Context): List<ReminderRule> = decode(prefs(context).getString(KEY_RULES, "") ?: "")
 
     // Saving counts as having run: an edit never fires what it just made overdue. Adding a 10:00
