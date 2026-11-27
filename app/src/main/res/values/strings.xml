@@ -285,6 +285,8 @@
     <string name="channel_sharing_reminders">Sharing reminders</string>
     <string name="reminder_on_title">It\'s %1$s. Turn on location sharing?</string>
     <string name="reminder_off_title">It\'s %1$s. Turn off location sharing?</string>
+    <string name="reminder_already_on">Location sharing is already on</string>
+    <string name="reminder_already_off">Location sharing is already off</string>
     <string name="reminder_on_body">Tap to turn it on.</string>
     <string name="reminder_off_body">Tap to turn it off.</string>
     <string name="sharing_stopped_title">Sharing stopped</string>

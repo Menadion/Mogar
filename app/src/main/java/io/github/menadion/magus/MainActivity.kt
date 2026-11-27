@@ -204,6 +204,7 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(AutoUpdate.INSTALL_UPDATE, false)) {
             AutoUpdate.installRequested = true
         }
+        ReminderTap.take(this, intent)
     }
 
     // Back from Android's settings: the Keep running steps may have changed, and with them the gear's dot.
@@ -241,6 +242,8 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(AutoUpdate.INSTALL_UPDATE, false) == true) {
             AutoUpdate.installRequested = true
         }
+        // A reminder tap that started Mogar cold. Not on a recreate: that intent was already acted on.
+        if (savedInstanceState == null) ReminderTap.take(this, intent)
         setContent {
             MogarTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -392,6 +395,34 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                 askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
             !isGranted(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) -> explainBackground = true
             else -> startSharing()
+        }
+    }
+
+    // The pill, as one move for the tap on the pill and the tap on a sharing reminder, so the two
+    // cannot drift apart. Off is theirs to give and takes effect at once. On is a request: it cannot
+    // be on unless the phone will report a position, so it asks first and the answer decides (see
+    // onLocationSettled). Nothing is committed here for on.
+    fun setPill(on: Boolean) {
+        if (on) {
+            pillWantsOn = true
+            locationAsk++
+        } else {
+            Family.setSharing(context, false)
+            ShareService.stop(context)
+            notice = context.getString(R.string.sharing_notice_off)
+        }
+    }
+
+    // Arriving from a sharing reminder: do what it asked, unless the pill already is that way (it
+    // may have been flipped by hand since the reminder was posted), and then just say so.
+    LaunchedEffect(ReminderTap.asked) {
+        val asked = ReminderTap.asked ?: return@LaunchedEffect
+        ReminderTap.asked = null
+        val on = asked == ReminderAction.ON
+        if (Family.isSharing(context) == on) {
+            notice = context.getString(if (on) R.string.reminder_already_on else R.string.reminder_already_off)
+        } else {
+            setPill(on)
         }
     }
 
@@ -571,19 +602,7 @@ fun FamilyScreen(code: String, onLeft: () -> Unit) {
                     familyName = familyName,
                     memberCount = members.size + 1,
                     sharing = sharing,
-                    // Off is theirs to give and takes effect at once. On is a request: the pill
-                    // cannot be on unless the phone will report a position, so it asks first and
-                    // the answer decides (see onLocationSettled). Nothing is committed here.
-                    onToggle = {
-                        if (sharing) {
-                            Family.setSharing(context, false)
-                            ShareService.stop(context)
-                            notice = context.getString(R.string.sharing_notice_off)
-                        } else {
-                            pillWantsOn = true
-                            locationAsk++
-                        }
-                    },
+                    onToggle = { setPill(!sharing) },
                     needsAttention = Updates.newer != null || !KeepRunning.allDone,
                     weatherOn = Rain.on,
                     onWeather = {

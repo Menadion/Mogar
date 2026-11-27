@@ -7,6 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.app.NotificationCompat
 import java.time.DayOfWeek
 import java.time.Instant
@@ -24,6 +27,26 @@ import java.util.Date
 // post, saveRules) is the alarm, the saved rules and the notification, built on top of it.
 
 enum class ReminderAction { ON, OFF }
+
+// The tap on a reminder, waiting for the screen to act on it. Same hand-off as
+// AutoUpdate.installRequested: the activity sets it, FamilyScreen watches it and clears it.
+object ReminderTap {
+    var asked by mutableStateOf<ReminderAction?>(null)
+
+    // Reads the reminder out of the intent a notification tap opened Mogar with, and removes it so
+    // a rotation or a second delivery of the same intent cannot act twice. No family on this phone
+    // means no screen to act on it, so it is dropped rather than left to fire after a later join.
+    fun take(context: Context, intent: Intent?) {
+        val word = intent?.getStringExtra(SharingReminders.EXTRA_ACTION) ?: return
+        intent.removeExtra(SharingReminders.EXTRA_ACTION)
+        if (Family.savedCode(context) == null) return
+        asked = when (word) {
+            "on" -> ReminderAction.ON
+            "off" -> ReminderAction.OFF
+            else -> null
+        }
+    }
+}
 
 // One rule is one time, a set of days and one action, so "on" and "off" are separate rules (M's
 // pick, 2026-11-27). Days are java.time's, Monday to Sunday: Calendar counts Sunday as 1, which
