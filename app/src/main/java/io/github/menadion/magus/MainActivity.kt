@@ -212,6 +212,8 @@ class MainActivity : ComponentActivity() {
         // Debug builds only, for testing another brand's card on whatever phone is to hand:
         //   am start -n io.github.menadion.magus/.MainActivity --es brand vivo
         KeepRunning.overrideBrand(this, intent?.getStringExtra("brand"))
+        //   am start -n io.github.menadion.magus/.MainActivity --es reminderRules "1:10:0:1,2,3,4,5,6,7:ON"
+        SharingReminders.debugSeed(this, intent?.getStringExtra("reminderRules"))
         KeepRunning.refresh(this)
     }
 
@@ -234,6 +236,8 @@ class MainActivity : ComponentActivity() {
         // The check that runs whether or not anyone opens Mogar again. KEEP inside, so this does
         // not restart the day's clock every time the app is opened.
         AutoUpdate.schedule(this)
+        // Does any sharing reminder that came due while Mogar was closed, and sets the next alarm.
+        SharingReminders.run(this)
         if (intent?.getBooleanExtra(AutoUpdate.INSTALL_UPDATE, false) == true) {
             AutoUpdate.installRequested = true
         }

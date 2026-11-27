@@ -111,6 +111,63 @@ class SharingRemindersTest {
         assertEquals(ms("2026-03-09T02:30:00", ny), next.atMs)
     }
 
+    // ---- missed: what a late wake-up has to catch up on ----
+
+    @Test fun missedFindsEveryMomentPassedOverOldestFirst() {
+        // Last ran at 09:00, woke at 10:07: both the 10:00 and the 10:05 rule fell due in between.
+        val rules = listOf(rule(2, "10:05", setOf(FRIDAY), ReminderAction.OFF), rule(1, "10:00", setOf(FRIDAY)))
+        val m = SharingReminders.missed(rules, ms("2026-11-27T09:00:00"), ms("2026-11-27T10:07:00"), manila)
+        assertEquals(listOf(ms("2026-11-27T10:00:00"), ms("2026-11-27T10:05:00")), m.map { it.atMs })
+        assertEquals(listOf(listOf(1), listOf(2)), m.map { d -> d.rules.map { it.id } })
+    }
+
+    @Test fun missedLeavesOutTheLastRunMomentAndAnythingAfterNow() {
+        val rules = listOf(rule(1, "10:00", setOf(FRIDAY)))
+        // Already handled at 10:00 on the last run: not handled twice.
+        assertEquals(0, SharingReminders.missed(rules, ms("2026-11-27T10:00:00"), ms("2026-11-27T10:30:00"), manila).size)
+        // Not due yet at 09:59.
+        assertEquals(0, SharingReminders.missed(rules, ms("2026-11-27T09:00:00"), ms("2026-11-27T09:59:00"), manila).size)
+    }
+
+    @Test fun missedIncludesAMomentExactlyNow() {
+        val rules = listOf(rule(1, "10:00", setOf(FRIDAY)))
+        assertEquals(1, SharingReminders.missed(rules, ms("2026-11-27T09:00:00"), ms("2026-11-27T10:00:00"), manila).size)
+    }
+
+    @Test fun missedDropsMomentsOlderThanTheCatchUpWindow() {
+        // A daily 10:00 rule, last run a week ago, woken Friday 11:00: only that morning's 10:00 is
+        // within twelve hours; the six before it are stale and dropped.
+        val m = SharingReminders.missed(listOf(rule(1, "10:00", every)), ms("2026-11-20T09:00:00"), ms("2026-11-27T11:00:00"), manila)
+        assertEquals(listOf(ms("2026-11-27T10:00:00")), m.map { it.atMs })
+    }
+
+    @Test fun missedWithNoRulesIsEmpty() {
+        assertEquals(0, SharingReminders.missed(emptyList(), ms("2026-11-20T09:00:00"), ms("2026-11-27T11:00:00"), manila).size)
+    }
+
+    // ---- the saved form ----
+
+    @Test fun rulesAreSavedAsOneLineOfText() {
+        val rules = listOf(rule(1, "10:00", setOf(FRIDAY, TUESDAY)), rule(2, "19:30", setOf(MONDAY), ReminderAction.OFF))
+        assertEquals("1:10:0:2,5:ON;2:19:30:1:OFF", SharingReminders.encode(rules))
+    }
+
+    @Test fun savedRulesComeBackAsTheyWentIn() {
+        val rules = listOf(rule(1, "10:00", setOf(FRIDAY, TUESDAY)), rule(2, "07:05", every, ReminderAction.OFF), rule(3, "00:00", emptySet()))
+        assertEquals(rules, SharingReminders.decode(SharingReminders.encode(rules)))
+    }
+
+    @Test fun nothingSavedIsNoRules() {
+        assertEquals(emptyList<ReminderRule>(), SharingReminders.decode(""))
+        assertEquals("", SharingReminders.encode(emptyList()))
+    }
+
+    @Test fun anUnreadableEntryIsDroppedAndTheRestKept() {
+        // Entry 2 is not a rule, 4's hour is 25, 5's day is 9. Only 1 and 3 survive.
+        val saved = "1:10:0:5:ON;garbage;3:7:30:1,2:OFF;4:25:0:5:ON;5:9:0:9:ON"
+        assertEquals(listOf(1, 3), SharingReminders.decode(saved).map { it.id })
+    }
+
     @Test fun aNonexistentTimeOfDayIsRejected() {
         assertThrows(IllegalArgumentException::class.java) { ReminderRule(1, 24, 0, every, ReminderAction.ON) }
         assertThrows(IllegalArgumentException::class.java) { ReminderRule(1, 10, 60, every, ReminderAction.ON) }

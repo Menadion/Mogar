@@ -282,6 +282,11 @@
 
     <!-- "Sharing stopped" notice, after a restart the sharer could not start from -->
     <string name="channel_stopped">Sharing stopped</string>
+    <string name="channel_sharing_reminders">Sharing reminders</string>
+    <string name="reminder_on_title">It\'s %1$s. Turn on location sharing?</string>
+    <string name="reminder_off_title">It\'s %1$s. Turn off location sharing?</string>
+    <string name="reminder_on_body">Tap to turn it on.</string>
+    <string name="reminder_off_body">Tap to turn it off.</string>
     <string name="sharing_stopped_title">Sharing stopped</string>
     <string name="sharing_stopped_text">Open Mogar to turn it back on.</string>
 

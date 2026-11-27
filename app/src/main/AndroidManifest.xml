@@ -67,6 +67,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- The sharing reminder alarm, set by SharingReminders.arm -->
+        <receiver
+            android:name=".SharingReminderReceiver"
+            android:exported="false" />
+
         <!--
           The phone's own location switch has no receiver here on purpose: PROVIDERS_CHANGED and
           MODE_CHANGED are implicit broadcasts, which since Android 8 never reach a receiver
